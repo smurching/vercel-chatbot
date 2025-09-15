@@ -19,6 +19,38 @@ const databricksFetch: typeof fetch = async (input, init) => {
     url = `${baseUrl}/serving-endpoints/responses`;
   }
 
+  // Fix the content format for Databricks compatibility
+  if (init?.body) {
+    try {
+      const parsed = JSON.parse(init.body as string);
+
+      // Transform content format for Databricks
+      if (parsed.input && Array.isArray(parsed.input)) {
+        for (const message of parsed.input) {
+          if (message.content && Array.isArray(message.content)) {
+            // Convert complex content format to simple string for Databricks
+            const textContent = message.content
+              .filter((part: any) => part.type === 'input_text' || part.type === 'text')
+              .map((part: any) => part.text)
+              .join('\n');
+
+            if (textContent) {
+              message.content = textContent;
+            }
+          }
+        }
+
+        // Create new body with fixed content
+        init = {
+          ...init,
+          body: JSON.stringify(parsed)
+        };
+      }
+    } catch (e) {
+      // If parsing fails, continue with original body
+    }
+  }
+
   const response = await fetch(url, init);
 
   if (!response.ok) {
