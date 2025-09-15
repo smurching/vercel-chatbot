@@ -6,16 +6,16 @@ import {
 import { gateway } from '@ai-sdk/gateway';
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
+import { createDatabricksProvider } from './databricks-provider';
 
-// Create Databricks OpenAI-compatible client
-const databricks = createOpenAI({
-  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+// Create Databricks provider
+const databricks = createDatabricksProvider({
+  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints/responses`,
   apiKey: process.env.DATABRICKS_TOKEN || '',
-  compatibility: 'compatible',
 });
 
 // Use the Databricks agent endpoint
-const databricksModel = databricks('ka-f2d208b3-endpoint');
+const databricksModel = databricks('ka-1e3e7f9e-endpoint');
 
 export const myProvider = isTestEnvironment
   ? (() => {
