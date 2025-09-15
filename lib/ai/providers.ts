@@ -19,10 +19,11 @@ const databricksFetch: typeof fetch = async (input, init) => {
     url = `${baseUrl}/serving-endpoints/responses`;
   }
 
-  // Fix the content format for Databricks compatibility
+  // Fix the request format for Databricks compatibility
   if (init?.body) {
     try {
       const parsed = JSON.parse(init.body as string);
+      console.log('Original request to Databricks:', JSON.stringify(parsed, null, 2));
 
       // Transform content format for Databricks
       if (parsed.input && Array.isArray(parsed.input)) {
@@ -39,13 +40,24 @@ const databricksFetch: typeof fetch = async (input, init) => {
             }
           }
         }
-
-        // Create new body with fixed content
-        init = {
-          ...init,
-          body: JSON.stringify(parsed)
-        };
       }
+
+      // Remove or transform tools that Databricks doesn't support
+      if (parsed.tools && Array.isArray(parsed.tools)) {
+        // Databricks doesn't support the OpenAI tools format, so remove them
+        delete parsed.tools;
+        delete parsed.tool_choice;
+      }
+
+      // Keep streaming enabled - Databricks supports it and UI expects it
+
+      console.log('Transformed request to Databricks:', JSON.stringify(parsed, null, 2));
+
+      // Create new body with fixed content and tools
+      init = {
+        ...init,
+        body: JSON.stringify(parsed)
+      };
     } catch (e) {
       // If parsing fails, continue with original body
     }
@@ -58,17 +70,41 @@ const databricksFetch: typeof fetch = async (input, init) => {
   }
 
   const contentType = response.headers.get('content-type');
+
+  // If it's a streaming response, return as-is
+  if (contentType?.includes('text/plain') || contentType?.includes('text/event-stream')) {
+    console.log('Returning streaming response as-is');
+    return response;
+  }
+
   if (!contentType?.includes('application/json')) {
     return response;
   }
 
   const data = await response.json();
 
-  // Transform Databricks response format to OpenAI responses format
+  // Transform Databricks response format to OpenAI format
   if (data.object === 'response' && data.output && Array.isArray(data.output)) {
+    console.log('Transforming Databricks response:', JSON.stringify(data, null, 2));
+
+    // Extract the text content for the AI SDK
+    let textContent = '';
+    if (data.output[0]?.content?.[0]?.text) {
+      textContent = data.output[0].content[0].text;
+    }
+
     const transformedData = {
-      ...data,
+      model: data.model,
+      object: data.object,
+      id: data.id,
       created_at: Math.floor(Date.now() / 1000),
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: textContent
+        },
+        finish_reason: 'stop'
+      }],
       output: data.output.map((msg: any) => ({
         ...msg,
         content: msg.content.map((content: any) => ({
@@ -79,10 +115,12 @@ const databricksFetch: typeof fetch = async (input, init) => {
       incomplete_details: null,
       usage: {
         input_tokens: 0,
-        output_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
-        total_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
+        output_tokens: textContent.length ? Math.ceil(textContent.length / 4) : 0,
+        total_tokens: textContent.length ? Math.ceil(textContent.length / 4) : 0,
       }
     };
+
+    console.log('Transformed response (should have created_at and input_tokens):', JSON.stringify(transformedData, null, 2));
 
     return new Response(JSON.stringify(transformedData), {
       status: response.status,
@@ -128,7 +166,7 @@ export const myProvider = isTestEnvironment
           model: databricksModel,
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': databricksModel,
-        'artifact-model': databricksModel,
+        'title-model': gateway.languageModel('xai/grok-2-1212'),
+        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
       },
     });

@@ -42,6 +42,13 @@ import type { VisibilityType } from '@/components/visibility-selector';
 
 export const maxDuration = 60;
 
+// Add unhandled rejection logging for debugging
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION in chat API:', reason);
+  console.error('Full rejection stack:', reason?.stack || 'No stack available');
+  console.error('Promise:', promise);
+});
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
@@ -243,6 +250,10 @@ export async function POST(request: Request) {
     }
 
     console.error('Unhandled error in chat API:', error);
+    console.error('Full stack trace:', error?.stack || 'No stack trace available');
+    if (error?.cause) {
+      console.error('Error cause:', error.cause);
+    }
     return new ChatSDKError('offline:chat').toResponse();
   }
 }

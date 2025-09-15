@@ -57,6 +57,7 @@ This API now uses the Databricks agent serving endpoint:
 ✅ **Working Features:**
 - URL rewriting from `/responses/responses` to `/serving-endpoints/responses`
 - Content format transformation (complex array → simple string)
+- Tools schema compatibility (removes unsupported OpenAI tools)
 - Response format compatibility with AI SDK
 - Custom fetch function with proper error handling
 
@@ -71,7 +72,18 @@ But Databricks expects:
 {"content": "Hello"}
 ```
 
-Our custom fetch function automatically converts between these formats.
+✅ **Tools Schema Fix:**
+The AI SDK sends tools in OpenAI format:
+```json
+{
+  "tools": [{"type": "function", "name": "getWeather", "parameters": {...}}],
+  "tool_choice": "auto"
+}
+```
+
+But Databricks doesn't support this format, so these fields are removed automatically.
+
+Our custom fetch function automatically handles all these transformations.
 
 ## Direct Test Endpoint
 
