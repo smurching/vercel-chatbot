@@ -4,7 +4,18 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
+import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
+
+// Create Databricks OpenAI-compatible client
+const databricks = createOpenAI({
+  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+  apiKey: process.env.DATABRICKS_TOKEN || '',
+  compatibility: 'compatible',
+});
+
+// Use the Databricks agent endpoint
+const databricksModel = databricks('ka-f2d208b3-endpoint');
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -25,12 +36,12 @@ export const myProvider = isTestEnvironment
     })()
   : customProvider({
       languageModels: {
-        'chat-model': gateway.languageModel('xai/grok-2-vision-1212'),
+        'chat-model': databricksModel,
         'chat-model-reasoning': wrapLanguageModel({
-          model: gateway.languageModel('xai/grok-3-mini'),
+          model: databricksModel,
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': gateway.languageModel('xai/grok-2-1212'),
-        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
+        'title-model': databricksModel,
+        'artifact-model': databricksModel,
       },
     });
