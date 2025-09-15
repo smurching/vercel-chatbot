@@ -9,7 +9,17 @@ import { isTestEnvironment } from '../constants';
 
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
+  // Rewrite URL to use the correct Databricks endpoint
+  let url = input.toString();
+  if (url.includes('/responses/responses')) {
+    url = url.replace('/responses/responses', '/serving-endpoints/responses');
+  } else if (!url.includes('/serving-endpoints/responses')) {
+    // If it's trying to access some other endpoint, redirect to responses
+    const baseUrl = url.split('/')[0] + '//' + url.split('/')[2];
+    url = `${baseUrl}/serving-endpoints/responses`;
+  }
+
+  const response = await fetch(url, init);
 
   if (!response.ok) {
     return response;
@@ -36,8 +46,8 @@ const databricksFetch: typeof fetch = async (input, init) => {
       })),
       incomplete_details: null,
       usage: {
-        prompt_tokens: 0,
-        completion_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
+        input_tokens: 0,
+        output_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
         total_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
       }
     };
@@ -54,7 +64,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
 
 // Create Databricks OpenAI-compatible provider using responses API
 const databricks = createOpenAI({
-  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}`,
   apiKey: process.env.DATABRICKS_TOKEN || '',
   fetch: databricksFetch,
 });
