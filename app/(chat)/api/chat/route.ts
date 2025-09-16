@@ -1,11 +1,16 @@
 import {
   convertToModelMessages,
   createUIMessageStream,
+  createUIMessageStreamResponse,
+  type InferUIMessageChunk,
   JsonToSseTransformStream,
   type LanguageModelUsage,
   smoothStream,
   stepCountIs,
   streamText,
+  UIDataTypes,
+  type UIMessage,
+  wrapLanguageModel,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
@@ -39,6 +44,11 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
+import { openai } from '@ai-sdk/openai';
+import {
+  LanguageModelV2Middleware,
+  LanguageModelV2StreamPart,
+} from '@ai-sdk/provider';
 
 export const maxDuration = 60;
 
@@ -66,6 +76,8 @@ export function getStreamContext() {
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
+
+  console.log('CHAT POST REQUEST');
 
   try {
     const json = await request.json();
@@ -154,7 +166,7 @@ export async function POST(request: Request) {
     let finalUsage: LanguageModelUsage | undefined;
 
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
+      execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
@@ -170,15 +182,15 @@ export async function POST(request: Request) {
                   'requestSuggestions',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
+          // tools: {
+          //   getWeather,
+          //   createDocument: createDocument({ session, dataStream: writer }),
+          //   updateDocument: updateDocument({ session, dataStream: writer }),
+          //   requestSuggestions: requestSuggestions({
+          //     session,
+          //     dataStream,
+          //   }),
+          // },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
@@ -189,13 +201,42 @@ export async function POST(request: Request) {
           },
         });
 
-        result.consumeStream();
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
+        let lastChunk = null as InferUIMessageChunk<UIMessage> | null;
+        const pushChunk = (chunkToPush: InferUIMessageChunk<UIMessage>) => {
+          console.log('pushing chunk', JSON.stringify(chunkToPush, null, 2));
+          lastChunk = chunkToPush;
+          dataStream.write(chunkToPush);
+        };
+        for await (const chunk of result.toUIMessageStream()) {
+          switch (chunk.type) {
+            case 'text-delta':
+              {
+                if (lastChunk === null) {
+                  // Push a text-start
+                  pushChunk({
+                    type: 'text-start',
+                    id: chunk.id,
+                  });
+                } else {
+                  if (
+                    lastChunk.type === 'text-delta' &&
+                    lastChunk.id !== chunk.id
+                  ) {
+                    // Push a text-end and text-start
+                    pushChunk({
+                      type: 'text-end',
+                      id: lastChunk.id,
+                    });
+                    pushChunk({
+                      type: 'text-start',
+                      id: chunk.id,
+                    });
+                  }
+                }
+              }
+              pushChunk(chunk);
+          }
+        }
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
@@ -226,17 +267,12 @@ export async function POST(request: Request) {
       },
     });
 
-    const streamContext = getStreamContext();
-
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
+    // Return the stream as a response
+    return createUIMessageStreamResponse({
+      stream,
+      status: 200,
+      statusText: 'OK',
+    });
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
