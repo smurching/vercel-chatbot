@@ -1,0 +1,18 @@
+command: ["npm", "run", "start"]
+runtime: nodejs20
+
+env:
+  - name: AUTH_SECRET
+    value: "figure_this_one_out" # gitleaks:allow
+  - name: POSTGRES_URL
+    value: "add_postgres_url_with_user__figure_out_password_without_leaking" # gitleaks:allow
+  - name: BLOB_READ_WRITE_TOKEN
+    value: "does_not_matter"
+  - name: DATABRICKS_HOST
+    value: "https://e2-dogfood.staging.cloud.databricks.com"
+  - name: DATABRICKS_TOKEN
+    valueFrom: DATABRICKS_CLIENT_SECRET
+  - name: AI_GATEWAY_API_KEY
+    value: "does_not_matter"
+  - name: AUTH_TRUST_HOST
+    value: "true" # See https://authjs.dev/getting-started/deployment#self-hosted
