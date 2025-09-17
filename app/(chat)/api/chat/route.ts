@@ -201,42 +201,11 @@ export async function POST(request: Request) {
           },
         });
 
-        let lastChunk = null as InferUIMessageChunk<UIMessage> | null;
-        const pushChunk = (chunkToPush: InferUIMessageChunk<UIMessage>) => {
-          console.log('pushing chunk', JSON.stringify(chunkToPush, null, 2));
-          lastChunk = chunkToPush;
-          dataStream.write(chunkToPush);
-        };
-        for await (const chunk of result.toUIMessageStream()) {
-          switch (chunk.type) {
-            case 'text-delta':
-              {
-                if (lastChunk === null) {
-                  // Push a text-start
-                  pushChunk({
-                    type: 'text-start',
-                    id: chunk.id,
-                  });
-                } else {
-                  if (
-                    lastChunk.type === 'text-delta' &&
-                    lastChunk.id !== chunk.id
-                  ) {
-                    // Push a text-end and text-start
-                    pushChunk({
-                      type: 'text-end',
-                      id: lastChunk.id,
-                    });
-                    pushChunk({
-                      type: 'text-start',
-                      id: chunk.id,
-                    });
-                  }
-                }
-              }
-              pushChunk(chunk);
-          }
-        }
+        dataStream.merge(
+          result.toUIMessageStream({
+            sendReasoning: true,
+          }),
+        );
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {

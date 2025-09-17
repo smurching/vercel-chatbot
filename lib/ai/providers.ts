@@ -6,6 +6,10 @@ import {
 import { gateway } from '@ai-sdk/gateway';
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
+import type {
+  LanguageModelV2Middleware,
+  LanguageModelV2StreamPart,
+} from '@ai-sdk/provider';
 
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
@@ -35,16 +39,20 @@ const databricksFetch: typeof fetch = async (input, init) => {
         content: msg.content.map((content: any) => ({
           ...content,
           annotations: [],
-        }))
+        })),
       })),
       incomplete_details: null,
       usage: {
         input_tokens: 0,
-        output_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
-        total_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
+        output_tokens: data.output[0]?.content?.[0]?.text?.length
+          ? Math.ceil(data.output[0].content[0].text.length / 4)
+          : 0,
+        total_tokens: data.output[0]?.content?.[0]?.text?.length
+          ? Math.ceil(data.output[0].content[0].text.length / 4)
+          : 0,
       },
       // TODO: extract the "model" param for the request and include it here in the output
-      model: "TODO: unknown",
+      model: 'TODO: unknown',
     };
 
     return new Response(JSON.stringify(transformedData), {
@@ -75,6 +83,71 @@ const databricksModel = databricks.responses('agents_ml-bbqiu-annotationsv2');
 // Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
 // const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
+const databricksMiddleware: LanguageModelV2Middleware = {
+  wrapGenerate: async ({ doGenerate }) => doGenerate(),
+  wrapStream: async ({ doStream }) => {
+    const { stream, ...rest } = await doStream();
+    let lastChunk = null as LanguageModelV2StreamPart | null;
+    const transformStream = new TransformStream<
+      LanguageModelV2StreamPart,
+      LanguageModelV2StreamPart
+    >({
+      transform(chunk, controller) {
+        // Inject text part boundaries
+        const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
+        // Enqueue the transformed chunks
+        out.forEach((chunk) => controller.enqueue(chunk));
+        // Update the last chunk
+        lastChunk = last;
+      },
+    });
+
+    return {
+      stream: stream.pipeThrough(transformStream),
+      ...rest,
+    };
+  },
+};
+
+function injectTextPartBoundaries(
+  incoming: LanguageModelV2StreamPart,
+  last: LanguageModelV2StreamPart | null,
+) {
+  const out: LanguageModelV2StreamPart[] = [];
+
+  // 1️⃣ Close a dangling text-delta when a non‑text chunk arrives.
+  if (
+    last?.type === 'text-delta' &&
+    incoming.type !== 'text-delta' &&
+    incoming.type !== 'text-end'
+  ) {
+    out.push({ type: 'text-end', id: last.id });
+  }
+
+  // 2️⃣ We have a fresh text‑delta chunk → inject a `text-start`.
+  else if (
+    incoming.type === 'text-delta' &&
+    (last === null || last.type !== 'text-delta')
+  ) {
+    out.push({ type: 'text-start', id: incoming.id });
+  }
+
+  // 3️⃣ A `text-delta` with a **different** id follows another `text-delta` → close the
+  //    previous one and start a new one.
+  else if (
+    incoming.type === 'text-delta' &&
+    last?.type === 'text-delta' &&
+    last.id !== incoming.id
+  ) {
+    out.push(
+      { type: 'text-end', id: last.id },
+      { type: 'text-start', id: incoming.id },
+    );
+  }
+
+  return { out: [...out, incoming], last: incoming };
+}
+
 export const myProvider = isTestEnvironment
   ? (() => {
       const {
@@ -94,10 +167,16 @@ export const myProvider = isTestEnvironment
     })()
   : customProvider({
       languageModels: {
-        'chat-model': databricksModel,
+        'chat-model': wrapLanguageModel({
+          model: databricksModel,
+          middleware: [databricksMiddleware],
+        }),
         'chat-model-reasoning': wrapLanguageModel({
           model: databricksModel,
-          middleware: extractReasoningMiddleware({ tagName: 'think' }),
+          middleware: [
+            extractReasoningMiddleware({ tagName: 'think' }),
+            databricksMiddleware,
+          ],
         }),
         'title-model': databricksModel,
         'artifact-model': databricksModel,
