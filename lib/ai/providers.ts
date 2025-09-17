@@ -109,6 +109,43 @@ const databricksMiddleware: LanguageModelV2Middleware = {
   },
 };
 
+const databricksProvider = customProvider({
+  languageModels: {
+    'chat-model': wrapLanguageModel({
+      model: databricksModel,
+      middleware: [databricksMiddleware],
+    }),
+    'chat-model-reasoning': wrapLanguageModel({
+      model: databricksModel,
+      middleware: [
+        extractReasoningMiddleware({ tagName: 'think' }),
+        databricksMiddleware,
+      ],
+    }),
+    'title-model': databricksModel,
+    'artifact-model': databricksModel,
+  },
+});
+
+export const myProvider = isTestEnvironment
+  ? (() => {
+      const {
+        artifactModel,
+        chatModel,
+        reasoningModel,
+        titleModel,
+      } = require('./models.mock');
+      return customProvider({
+        languageModels: {
+          'chat-model': chatModel,
+          'chat-model-reasoning': reasoningModel,
+          'title-model': titleModel,
+          'artifact-model': artifactModel,
+        },
+      });
+    })()
+  : databricksProvider;
+
 function injectTextPartBoundaries(
   incoming: LanguageModelV2StreamPart,
   last: LanguageModelV2StreamPart | null,
@@ -147,38 +184,3 @@ function injectTextPartBoundaries(
 
   return { out: [...out, incoming], last: incoming };
 }
-
-export const myProvider = isTestEnvironment
-  ? (() => {
-      const {
-        artifactModel,
-        chatModel,
-        reasoningModel,
-        titleModel,
-      } = require('./models.mock');
-      return customProvider({
-        languageModels: {
-          'chat-model': chatModel,
-          'chat-model-reasoning': reasoningModel,
-          'title-model': titleModel,
-          'artifact-model': artifactModel,
-        },
-      });
-    })()
-  : customProvider({
-      languageModels: {
-        'chat-model': wrapLanguageModel({
-          model: databricksModel,
-          middleware: [databricksMiddleware],
-        }),
-        'chat-model-reasoning': wrapLanguageModel({
-          model: databricksModel,
-          middleware: [
-            extractReasoningMiddleware({ tagName: 'think' }),
-            databricksMiddleware,
-          ],
-        }),
-        'title-model': databricksModel,
-        'artifact-model': databricksModel,
-      },
-    });
