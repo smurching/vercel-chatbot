@@ -9,48 +9,7 @@ import { isTestEnvironment } from '../constants';
 
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
-  // Rewrite URL to use the correct Databricks endpoint
-  let url = input.toString();
-  if (url.includes('/responses/responses')) {
-    url = url.replace('/responses/responses', '/serving-endpoints/responses');
-  } else if (!url.includes('/serving-endpoints/responses')) {
-    // If it's trying to access some other endpoint, redirect to responses
-    const baseUrl = url.split('/')[0] + '//' + url.split('/')[2];
-    url = `${baseUrl}/serving-endpoints/responses`;
-  }
-
-  // Fix the content format for Databricks compatibility
-  if (init?.body) {
-    try {
-      const parsed = JSON.parse(init.body as string);
-
-      // Transform content format for Databricks
-      if (parsed.input && Array.isArray(parsed.input)) {
-        for (const message of parsed.input) {
-          if (message.content && Array.isArray(message.content)) {
-            // Convert complex content format to simple string for Databricks
-            const textContent = message.content
-              .filter((part: any) => part.type === 'input_text' || part.type === 'text')
-              .map((part: any) => part.text)
-              .join('\n');
-
-            if (textContent) {
-              message.content = textContent;
-            }
-          }
-        }
-
-        // Create new body with fixed content
-        init = {
-          ...init,
-          body: JSON.stringify(parsed)
-        };
-      }
-    } catch (e) {
-      // If parsing fails, continue with original body
-    }
-  }
-
+  const url = input.toString();
   const response = await fetch(url, init);
 
   if (!response.ok) {
@@ -64,7 +23,9 @@ const databricksFetch: typeof fetch = async (input, init) => {
 
   const data = await response.json();
 
-  // Transform Databricks response format to OpenAI responses format
+  // Add fields that are missing from Databricks' ResponsesAgent output chunks
+  // TODO: we should be able to fix this upstream in MLflow and add reasonable defaults for
+  // these fields (e.g. annotations, usage, etc), or just handle it here/in middleware?
   if (data.object === 'response' && data.output && Array.isArray(data.output)) {
     const transformedData = {
       ...data,
@@ -81,7 +42,9 @@ const databricksFetch: typeof fetch = async (input, init) => {
         input_tokens: 0,
         output_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
         total_tokens: data.output[0]?.content?.[0]?.text?.length ? Math.ceil(data.output[0].content[0].text.length / 4) : 0,
-      }
+      },
+      // TODO: extract the "model" param for the request and include it here in the output
+      model: "TODO: unknown",
     };
 
     return new Response(JSON.stringify(transformedData), {
@@ -90,19 +53,27 @@ const databricksFetch: typeof fetch = async (input, init) => {
       headers: response.headers,
     });
   }
-
-  return response;
+  // If not responses agent/endpoint, don't apply special formatting
+  // Note: Vercel AI SDK does not know how to render our custom ChatAgent response format,
+  // which is chat-completions-like but a bit different (no "choices", etc).
+  return new Response(JSON.stringify(data), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 };
 
 // Create Databricks OpenAI-compatible provider using responses API
 const databricks = createOpenAI({
-  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}`,
+  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
   apiKey: process.env.DATABRICKS_TOKEN || '',
   fetch: databricksFetch,
 });
 
 // Use the Databricks agent endpoint with responses API
-const databricksModel = databricks.responses('ka-1e3e7f9e-endpoint');
+const databricksModel = databricks.responses('agents_ml-bbqiu-annotationsv2');
+// Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
+// const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
 export const myProvider = isTestEnvironment
   ? (() => {
