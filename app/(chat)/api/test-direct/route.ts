@@ -17,7 +17,6 @@ export async function POST(request: Request) {
     const result = await generateText({
       model: myProvider.languageModel('chat-model'),
       messages: messages,
-      maxTokens: 1000,
     });
 
     return Response.json({
