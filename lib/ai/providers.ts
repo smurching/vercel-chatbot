@@ -93,12 +93,19 @@ const databricksMiddleware: LanguageModelV2Middleware = {
       LanguageModelV2StreamPart
     >({
       transform(chunk, controller) {
+        console.log('databricksMiddleware incoming chunk', chunk);
         // Inject text part boundaries
         const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
         // Enqueue the transformed chunks
         out.forEach((chunk) => controller.enqueue(chunk));
         // Update the last chunk
         lastChunk = last;
+      },
+      flush(controller) {
+        // Finally, if there's a dangling text-delta, close it
+        if (lastChunk?.type === 'text-delta') {
+          controller.enqueue({ type: 'text-end', id: lastChunk.id });
+        }
       },
     });
 
