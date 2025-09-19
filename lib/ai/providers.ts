@@ -118,18 +118,43 @@ const databricksMiddleware: LanguageModelV2Middleware = {
       LanguageModelV2StreamPart
     >({
       transform(chunk, controller) {
-        console.log('databricksMiddleware incoming chunk', chunk);
-        // Inject text part boundaries
-        const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
-        // Enqueue the transformed chunks
-        out.forEach((chunk) => controller.enqueue(chunk));
-        // Update the last chunk
-        lastChunk = last;
+        try {
+          console.log('databricksMiddleware incoming chunk', chunk);
+
+          // Handle custom source chunks from Databricks
+          if ((chunk as any).type === 'source') {
+            console.log('Processing source chunk:', chunk);
+            // Convert source chunks to annotation format or pass through as-is
+            controller.enqueue(chunk);
+            return;
+          }
+
+          // Inject text part boundaries for standard chunks
+          const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
+          // Enqueue the transformed chunks
+          out.forEach((transformedChunk) => {
+            console.log('Enqueueing transformed chunk:', transformedChunk);
+            controller.enqueue(transformedChunk);
+          });
+          // Update the last chunk
+          lastChunk = last;
+        } catch (error) {
+          console.error('Error in databricksMiddleware transform:', error);
+          console.error('Problematic chunk:', chunk);
+          console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
+          // Continue processing by passing through the original chunk
+          controller.enqueue(chunk);
+        }
       },
       flush(controller) {
-        // Finally, if there's a dangling text-delta, close it
-        if (lastChunk?.type === 'text-delta') {
-          controller.enqueue({ type: 'text-end', id: lastChunk.id });
+        try {
+          // Finally, if there's a dangling text-delta, close it
+          if (lastChunk?.type === 'text-delta') {
+            console.log('Flushing with text-end for dangling text-delta');
+            controller.enqueue({ type: 'text-end', id: lastChunk.id });
+          }
+        } catch (error) {
+          console.error('Error in databricksMiddleware flush:', error);
         }
       },
     });

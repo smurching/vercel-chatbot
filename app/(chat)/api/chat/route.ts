@@ -167,64 +167,80 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
-        const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
-          // TODO(smurching): conditionally include system prompt? It seems to break
-          // Agent Bricks KA endpoints
-          // system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
-          onFinish: ({ usage }) => {
-            finalUsage = usage;
-            dataStream.write({ type: 'data-usage', data: usage });
-          },
-        });
+        try {
+          const result = streamText({
+            model: myProvider.languageModel(selectedChatModel),
+            // TODO(smurching): conditionally include system prompt? It seems to break
+            // Agent Bricks KA endpoints
+            // system: systemPrompt({ selectedChatModel, requestHints }),
+            messages: convertToModelMessages(uiMessages),
+            stopWhen: stepCountIs(5),
+            experimental_activeTools:
+              selectedChatModel === 'chat-model-reasoning'
+                ? []
+                : [
+                    'getWeather',
+                    'createDocument',
+                    'updateDocument',
+                    'requestSuggestions',
+                  ],
+            experimental_transform: smoothStream({ chunking: 'word' }),
+            experimental_telemetry: {
+              isEnabled: isProductionEnvironment,
+              functionId: 'stream-text',
+            },
+            onFinish: ({ usage }) => {
+              try {
+                finalUsage = usage;
+                dataStream.write({ type: 'data-usage', data: usage });
+              } catch (error) {
+                console.error('Error in onFinish callback:', error);
+              }
+            },
+          });
 
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
+          dataStream.merge(
+            result.toUIMessageStream({
+              sendReasoning: true,
+            }),
+          );
+        } catch (error) {
+          console.error('Error in execute function:', error);
+          console.error('Execute error stack:', error instanceof Error ? error.stack : 'No stack');
+          throw error;
+        }
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
-        await saveMessages({
-          messages: messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            createdAt: new Date(),
-            attachments: [],
-            chatId: id,
-          })),
-        });
-
-        if (finalUsage) {
-          try {
-            await updateChatLastContextById({
+        try {
+          await saveMessages({
+            messages: messages.map((message) => ({
+              id: message.id,
+              role: message.role,
+              parts: message.parts,
+              createdAt: new Date(),
+              attachments: [],
               chatId: id,
-              context: finalUsage,
-            });
-          } catch (err) {
-            console.warn('Unable to persist last usage for chat', id, err);
+            })),
+          });
+
+          if (finalUsage) {
+            try {
+              await updateChatLastContextById({
+                chatId: id,
+                context: finalUsage,
+              });
+            } catch (err) {
+              console.warn('Unable to persist last usage for chat', id, err);
+            }
           }
+        } catch (error) {
+          console.error('Error in onFinish callback:', error);
         }
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('Stream onError callback triggered:', error);
+        console.error('Stream error stack:', error instanceof Error ? error.stack : 'No stack');
         return 'Oops, an error occurred!';
       },
     });
@@ -241,6 +257,12 @@ export async function POST(request: Request) {
     }
 
     console.error('Unhandled error in chat API:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack available',
+      name: error instanceof Error ? error.name : 'Unknown error',
+      cause: error instanceof Error ? error.cause : undefined,
+    });
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
