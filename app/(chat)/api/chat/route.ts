@@ -2,19 +2,12 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  type InferUIMessageChunk,
-  JsonToSseTransformStream,
   type LanguageModelUsage,
-  smoothStream,
   stepCountIs,
   streamText,
-  UIDataTypes,
-  type UIMessage,
-  wrapLanguageModel,
-  type CoreMessage,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
-import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
+import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,
   deleteChatById,
@@ -27,11 +20,6 @@ import {
 import { updateChatLastContextById } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
-import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
@@ -45,9 +33,12 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
+import {
+  DATABRICKS_TOOL_CALL_ID,
+  DATABRICKS_TOOL_DEFINITION,
+} from '@/lib/databricks-tool-calling';
 
 export const maxDuration = 60;
-
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -170,21 +161,21 @@ export async function POST(request: Request) {
           // Agent Bricks KA endpoints
           // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
+          // stopWhen: stepCountIs(5),
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });
+          },
+          includeRawChunks: true,
+          tools: {
+            [DATABRICKS_TOOL_CALL_ID]: DATABRICKS_TOOL_DEFINITION,
           },
         });
 
         dataStream.merge(
           result.toUIMessageStream({
             sendReasoning: true,
+            sendSources: true,
           }),
         );
       },
@@ -214,7 +205,10 @@ export async function POST(request: Request) {
       },
       onError: (error) => {
         console.error('Stream error:', error);
-        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
+        console.error(
+          'Stack trace:',
+          error instanceof Error ? error.stack : 'No stack',
+        );
         return 'Oops, an error occurred!';
       },
     });
@@ -231,7 +225,10 @@ export async function POST(request: Request) {
     }
 
     console.error('Unhandled error in chat API:', error);
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
+    console.error(
+      'Stack trace:',
+      error instanceof Error ? error.stack : 'No stack available',
+    );
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
