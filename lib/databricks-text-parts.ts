@@ -14,27 +14,28 @@ export const applyDatabricksTextPartTransform: DatabricksStreamPartTransformer<
       incoming.type !== 'text-delta' &&
       incoming.type !== 'text-end'
     ) {
-      out.push({ type: 'text-end', id: currentLast.id });
+      out.push(incoming);
     } else if (
       // 2️⃣ We have a fresh text‑delta chunk → inject a `text-start`.
       incoming.type === 'text-delta' &&
       (currentLast === null || currentLast.type !== 'text-delta')
     ) {
-      out.push({ type: 'text-start', id: incoming.id });
+      out.push({ type: 'text-start', id: incoming.id }, incoming);
     } else if (
       // 3️⃣ A `text-delta` with a **different** id follows another `text-delta` → close the
       incoming.type === 'text-delta' &&
       currentLast?.type === 'text-delta' &&
       currentLast.id !== incoming.id
     ) {
-      out.push(
-        { type: 'text-end', id: currentLast.id },
-        { type: 'text-start', id: incoming.id },
-      );
+      out.push({ type: 'text-start', id: incoming.id }, incoming);
+    } else if (
+      incoming.type === 'text-end' &&
+      currentLast?.type !== 'text-delta'
+    ) {
+      // Filter this one out
     }
 
-    out.push(incoming);
-    currentLast = incoming;
+    currentLast = out[out.length - 1] ?? currentLast;
   }
 
   return { out, last: currentLast };

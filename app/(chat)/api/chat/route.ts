@@ -40,7 +40,6 @@ import {
 
 export const maxDuration = 60;
 
-
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
@@ -162,7 +161,7 @@ export async function POST(request: Request) {
           // Agent Bricks KA endpoints
           // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
+          // stopWhen: stepCountIs(5),
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });
@@ -173,16 +172,10 @@ export async function POST(request: Request) {
           },
         });
 
-        for await (const part of result.toUIMessageStream({
-          sendReasoning: true,
-          sendSources: true,
-        })) {
-          dataStream.write(part);
-        }
-
         dataStream.merge(
           result.toUIMessageStream({
             sendReasoning: true,
+            sendSources: true,
           }),
         );
       },
@@ -212,7 +205,10 @@ export async function POST(request: Request) {
       },
       onError: (error) => {
         console.error('Stream error:', error);
-        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
+        console.error(
+          'Stack trace:',
+          error instanceof Error ? error.stack : 'No stack',
+        );
         return 'Oops, an error occurred!';
       },
     });
@@ -229,7 +225,10 @@ export async function POST(request: Request) {
     }
 
     console.error('Unhandled error in chat API:', error);
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
+    console.error(
+      'Stack trace:',
+      error instanceof Error ? error.stack : 'No stack available',
+    );
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
