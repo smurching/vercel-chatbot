@@ -268,6 +268,63 @@ const PurePreviewMessage = ({
                 </Tool>
               );
             }
+
+            // Generic tool call support for OpenAI-style tools
+            if (type === 'tool-call') {
+              const { toolCallId, toolName, args, result, state } = part;
+
+              return (
+                <Tool key={toolCallId} defaultOpen={true}>
+                  <ToolHeader type={toolName || 'tool-call'} state={state} />
+                  <ToolContent>
+                    {args && state === 'input-available' && (
+                      <ToolInput input={args} />
+                    )}
+                    {result && state === 'output-available' && (
+                      <ToolOutput
+                        output={
+                          typeof result === 'object' && result !== null && 'error' in result ? (
+                            <div className="rounded border p-2 text-red-500">
+                              Error: {String(result.error)}
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap font-mono text-sm">
+                              {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                            </div>
+                          )
+                        }
+                        errorText={undefined}
+                      />
+                    )}
+                  </ToolContent>
+                </Tool>
+              );
+            }
+
+            // Support for citations/annotations
+            if (type === 'citation' || type === 'annotation') {
+              const { index, text, url } = part;
+
+              if (url) {
+                return (
+                  <a
+                    key={key}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-baseline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    <sup className="text-xs">[{index || text}]</sup>
+                  </a>
+                );
+              }
+
+              return (
+                <sup key={key} className="text-xs text-muted-foreground">
+                  [{index || text}]
+                </sup>
+              );
+            }
           })}
 
           {!isReadonly && (

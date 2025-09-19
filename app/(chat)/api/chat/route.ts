@@ -1,11 +1,17 @@
 import {
   convertToModelMessages,
   createUIMessageStream,
+  createUIMessageStreamResponse,
+  type InferUIMessageChunk,
   JsonToSseTransformStream,
   type LanguageModelUsage,
   smoothStream,
   stepCountIs,
   streamText,
+  UIDataTypes,
+  type UIMessage,
+  wrapLanguageModel,
+  type CoreMessage,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
@@ -42,6 +48,7 @@ import type { VisibilityType } from '@/components/visibility-selector';
 
 export const maxDuration = 60;
 
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
@@ -66,6 +73,8 @@ export function getStreamContext() {
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
+
+  console.log('CHAT POST REQUEST');
 
   try {
     const json = await request.json();
@@ -154,31 +163,15 @@ export async function POST(request: Request) {
     let finalUsage: LanguageModelUsage | undefined;
 
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
+      execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          // TODO(smurching): conditionally include system prompt? It seems to break
+          // Agent Bricks KA endpoints
+          // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
@@ -188,8 +181,6 @@ export async function POST(request: Request) {
             dataStream.write({ type: 'data-usage', data: usage });
           },
         });
-
-        result.consumeStream();
 
         dataStream.merge(
           result.toUIMessageStream({
@@ -221,28 +212,26 @@ export async function POST(request: Request) {
           }
         }
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('Stream error:', error);
+        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
         return 'Oops, an error occurred!';
       },
     });
 
-    const streamContext = getStreamContext();
-
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
+    // Return the stream as a response
+    return createUIMessageStreamResponse({
+      stream,
+      status: 200,
+      statusText: 'OK',
+    });
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
 
     console.error('Unhandled error in chat API:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
