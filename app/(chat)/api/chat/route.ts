@@ -169,7 +169,9 @@ export async function POST(request: Request) {
       execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          // TODO(smurching): conditionally include system prompt? It seems to break
+          // Agent Bricks KA endpoints
+          // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools:
@@ -182,15 +184,6 @@ export async function POST(request: Request) {
                   'requestSuggestions',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          // tools: {
-          //   getWeather,
-          //   createDocument: createDocument({ session, dataStream: writer }),
-          //   updateDocument: updateDocument({ session, dataStream: writer }),
-          //   requestSuggestions: requestSuggestions({
-          //     session,
-          //     dataStream,
-          //   }),
-          // },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
