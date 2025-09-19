@@ -18,11 +18,12 @@ let tokenExpiresAt: number = 0;
 async function getDatabricksToken(): Promise<string> {
   // First, check if we have a PAT token
   if (process.env.DATABRICKS_TOKEN) {
+    console.log('Using PAT token from DATABRICKS_TOKEN env var');
     return process.env.DATABRICKS_TOKEN;
   }
 
   // Otherwise, use OAuth client credentials
-  console.log("Need to generate Databricks oauth token")
+  console.log('Using OAuth client credentials for authentication');
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
 
@@ -68,13 +69,6 @@ async function getDatabricksToken(): Promise<string> {
 const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
 
-  // Get the appropriate token (PAT or OAuth)
-  const token = await getDatabricksToken();
-
-  // Update headers with the token
-  const headers = new Headers(init?.headers);
-  headers.set('Authorization', `Bearer ${token}`);
-
   // Log the request being sent to Databricks
   if (init?.body) {
     try {
@@ -95,7 +89,11 @@ const databricksFetch: typeof fetch = async (input, init) => {
     }
   }
 
-  const response = await fetch(url, { ...init, headers });
+  // Check the authorization header to see what token is being used
+  const authHeader = init?.headers ? new Headers(init.headers).get('Authorization') : null;
+  console.log('Authorization header:', authHeader ? authHeader.substring(0, 20) + '...' : 'none');
+
+  const response = await fetch(url, init);
 
   if (!response.ok) {
     return response;
@@ -152,13 +150,51 @@ const databricksFetch: typeof fetch = async (input, init) => {
   });
 };
 
-// Create Databricks OpenAI-compatible provider using responses API
-const databricks = createOpenAI({
-  baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
-  // We handle auth in databricksFetch, so we provide a dummy key here
-  apiKey: 'handled-by-fetch',
-  fetch: databricksFetch,
-});
+// Check auth method and set up provider accordingly
+let databricks: ReturnType<typeof createOpenAI>;
+console.log(JSON.stringify([
+    process.env["DATABRICKS_CLIENT_SECRET"],
+    process.env['DATABRICKS_CLIENT_ID'],
+]));
+if (process.env.DATABRICKS_TOKEN) {
+  console.log('Using PAT authentication');
+  // Use PAT directly
+  databricks = createOpenAI({
+    baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+    apiKey: process.env.DATABRICKS_TOKEN,
+    fetch: databricksFetch,
+  });
+} else if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+  console.log('Using OAuth authentication');
+  // Use OAuth - get token once and create provider
+  const initializeWithOAuth = async () => {
+    const token = await getDatabricksToken();
+    return createOpenAI({
+      baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+      apiKey: token,
+      fetch: databricksFetch,
+    });
+  };
+
+  // Create a promise-based provider
+  const oauthProviderPromise = initializeWithOAuth();
+
+  // Proxy all methods to the resolved provider
+  databricks = new Proxy({} as ReturnType<typeof createOpenAI>, {
+    get(target, prop) {
+      return async function(...args: any[]) {
+        const provider = await oauthProviderPromise;
+        const method = (provider as any)[prop];
+        if (typeof method === 'function') {
+          return method.apply(provider, args);
+        }
+        return method;
+      };
+    }
+  });
+} else {
+  throw new Error('Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set');
+}
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
 const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
