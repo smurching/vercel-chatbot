@@ -14,6 +14,27 @@ import type {
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
+
+  // Log the request being sent to Databricks
+  if (init?.body) {
+    try {
+      const requestBody = typeof init.body === 'string'
+        ? JSON.parse(init.body)
+        : init.body;
+      console.log('Databricks request:', JSON.stringify({
+        url,
+        method: init.method || 'POST',
+        body: requestBody
+      }));
+    } catch (e) {
+      console.log('Databricks request (raw):', {
+        url,
+        method: init.method || 'POST',
+        body: init.body
+      });
+    }
+  }
+
   const response = await fetch(url, init);
 
   if (!response.ok) {
@@ -78,8 +99,9 @@ const databricks = createOpenAI({
   fetch: databricksFetch,
 });
 
-// Use the Databricks agent endpoint with responses API
-const databricksModel = databricks.responses('agents_ml-bbqiu-annotationsv2');
+// Use the Databricks serving endpoint from environment variable or fallback to default
+const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
+const databricksModel = databricks.responses(servingEndpoint);
 // Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
 // const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
