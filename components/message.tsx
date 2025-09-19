@@ -2,7 +2,6 @@
 import { motion } from 'framer-motion';
 import { memo, useState } from 'react';
 import type { Vote } from '@/lib/db/schema';
-import { DocumentToolResult } from './document';
 import { SparklesIcon } from './icons';
 import { Response } from './elements/response';
 import { MessageContent } from './elements/message';
@@ -15,11 +14,9 @@ import {
 } from './elements/tool';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
-import { Weather } from './weather';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
 import { MessageEditor } from './message-editor';
-import { DocumentPreview } from './document-preview';
 import { MessageReasoning } from './message-reasoning';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
@@ -167,129 +164,32 @@ const PurePreviewMessage = ({
               }
             }
 
-            if (type === 'tool-getWeather') {
-              const { toolCallId, state } = part;
-
-              return (
-                <Tool key={toolCallId} defaultOpen={true}>
-                  <ToolHeader type="tool-getWeather" state={state} />
-                  <ToolContent>
-                    {state === 'input-available' && (
-                      <ToolInput input={part.input} />
-                    )}
-                    {state === 'output-available' && (
-                      <ToolOutput
-                        output={<Weather weatherAtLocation={part.output} />}
-                        errorText={undefined}
-                      />
-                    )}
-                  </ToolContent>
-                </Tool>
-              );
-            }
-
-            if (type === 'tool-createDocument') {
-              const { toolCallId } = part;
-
-              if (part.output && 'error' in part.output) {
-                return (
-                  <div
-                    key={toolCallId}
-                    className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50"
-                  >
-                    Error creating document: {String(part.output.error)}
-                  </div>
-                );
-              }
-
-              return (
-                <DocumentPreview
-                  key={toolCallId}
-                  isReadonly={isReadonly}
-                  result={part.output}
-                />
-              );
-            }
-
-            if (type === 'tool-updateDocument') {
-              const { toolCallId } = part;
-
-              if (part.output && 'error' in part.output) {
-                return (
-                  <div
-                    key={toolCallId}
-                    className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50"
-                  >
-                    Error updating document: {String(part.output.error)}
-                  </div>
-                );
-              }
-
-              return (
-                <div key={toolCallId} className="relative">
-                  <DocumentPreview
-                    isReadonly={isReadonly}
-                    result={part.output}
-                    args={{ ...part.output, isUpdate: true }}
-                  />
-                </div>
-              );
-            }
-
-            if (type === 'tool-requestSuggestions') {
-              const { toolCallId, state } = part;
-
-              return (
-                <Tool key={toolCallId} defaultOpen={true}>
-                  <ToolHeader type="tool-requestSuggestions" state={state} />
-                  <ToolContent>
-                    {state === 'input-available' && (
-                      <ToolInput input={part.input} />
-                    )}
-                    {state === 'output-available' && (
-                      <ToolOutput
-                        output={
-                          'error' in part.output ? (
-                            <div className="rounded border p-2 text-red-500">
-                              Error: {String(part.output.error)}
-                            </div>
-                          ) : (
-                            <DocumentToolResult
-                              type="request-suggestions"
-                              result={part.output}
-                              isReadonly={isReadonly}
-                            />
-                          )
-                        }
-                        errorText={undefined}
-                      />
-                    )}
-                  </ToolContent>
-                </Tool>
-              );
-            }
-
             // Generic tool call support for OpenAI-style tools
-            if (type === 'tool-call') {
-              const { toolCallId, toolName, args, result, state } = part;
+            if (part.type === 'tool-databricks-tool-call') {
+              part;
+              const { toolCallId, input, state, errorText, output } = part;
+              const toolName =
+                'callProviderMetadata' in part
+                  ? part.callProviderMetadata?.originalPart?.toolName?.toString()
+                  : undefined;
 
               return (
                 <Tool key={toolCallId} defaultOpen={true}>
                   <ToolHeader type={toolName || 'tool-call'} state={state} />
                   <ToolContent>
-                    {args && state === 'input-available' && (
-                      <ToolInput input={args} />
-                    )}
-                    {result && state === 'output-available' && (
+                    <ToolInput input={input} />
+                    {state === 'output-available' && (
                       <ToolOutput
                         output={
-                          typeof result === 'object' && result !== null && 'error' in result ? (
+                          errorText ? (
                             <div className="rounded border p-2 text-red-500">
-                              Error: {String(result.error)}
+                              Error: {errorText}
                             </div>
                           ) : (
                             <div className="whitespace-pre-wrap font-mono text-sm">
-                              {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                              {typeof output === 'string'
+                                ? output
+                                : JSON.stringify(output, null, 2)}
                             </div>
                           )
                         }
@@ -302,27 +202,17 @@ const PurePreviewMessage = ({
             }
 
             // Support for citations/annotations
-            if (type === 'citation' || type === 'annotation') {
-              const { index, text, url } = part;
-
-              if (url) {
-                return (
-                  <a
-                    key={key}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-baseline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <sup className="text-xs">[{index || text}]</sup>
-                  </a>
-                );
-              }
-
+            if (type === 'source-url') {
               return (
-                <sup key={key} className="text-xs text-muted-foreground">
-                  [{index || text}]
-                </sup>
+                <a
+                  key={key}
+                  href={part.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-baseline text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  <sup className="text-xs">[{part.title || part.url}]</sup>
+                </a>
               );
             }
           })}

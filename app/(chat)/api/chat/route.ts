@@ -2,19 +2,12 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  type InferUIMessageChunk,
-  JsonToSseTransformStream,
   type LanguageModelUsage,
-  smoothStream,
   stepCountIs,
   streamText,
-  UIDataTypes,
-  type UIMessage,
-  wrapLanguageModel,
-  type CoreMessage,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
-import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
+import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,
   deleteChatById,
@@ -27,11 +20,6 @@ import {
 import { updateChatLastContextById } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
-import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
@@ -45,6 +33,10 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
+import {
+  DATABRICKS_TOOL_CALL_ID,
+  DATABRICKS_TOOL_DEFINITION,
+} from '@/lib/databricks-tool-calling';
 
 export const maxDuration = 60;
 
@@ -171,16 +163,22 @@ export async function POST(request: Request) {
           // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });
           },
+          includeRawChunks: true,
+          tools: {
+            [DATABRICKS_TOOL_CALL_ID]: DATABRICKS_TOOL_DEFINITION,
+          },
         });
+
+        for await (const part of result.toUIMessageStream({
+          sendReasoning: true,
+          sendSources: true,
+        })) {
+          dataStream.write(part);
+        }
 
         dataStream.merge(
           result.toUIMessageStream({
