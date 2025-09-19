@@ -27,6 +27,10 @@ import {
 import { updateChatLastContextById } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
+import { createDocument } from '@/lib/ai/tools/create-document';
+import { updateDocument } from '@/lib/ai/tools/update-document';
+import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
+import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
@@ -44,34 +48,6 @@ import type { VisibilityType } from '@/components/visibility-selector';
 
 export const maxDuration = 60;
 
-// Custom message conversion that excludes server-side tool calls
-function convertMessagesForServerSideTools(messages: UIMessage[]): CoreMessage[] {
-  return messages.map(message => {
-    const coreMessage: CoreMessage = {
-      role: message.role as 'user' | 'assistant' | 'system',
-      content: message.parts
-        .filter(part => {
-          // Exclude server-side tool calls and results
-          if (part.type === 'tool-call' && part.toolName?.startsWith('system__')) {
-            return false;
-          }
-          if (part.type === 'tool-result' && part.toolName?.startsWith('system__')) {
-            return false;
-          }
-          return part.type === 'text';
-        })
-        .map(part => {
-          if (part.type === 'text') {
-            return part.text;
-          }
-          return '';
-        })
-        .join('')
-    };
-
-    return coreMessage;
-  }).filter(message => message.content && message.content.trim().length > 0);
-}
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -193,8 +169,7 @@ export async function POST(request: Request) {
           // TODO(smurching): conditionally include system prompt? It seems to break
           // Agent Bricks KA endpoints
           // system: systemPrompt({ selectedChatModel, requestHints }),
-          // messages: convertToModelMessages(uiMessages),
-          messages: convertMessagesForServerSideTools(uiMessages),
+          messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_telemetry: {
