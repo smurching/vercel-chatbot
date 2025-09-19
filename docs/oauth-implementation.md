@@ -2,6 +2,7 @@
 
 ## Overview
 This document describes the OAuth client credentials authentication implementation for Databricks serving endpoints.
+The change is in the "oauth-token-vibe-code" branch.
 
 ## Authentication Flow
 The system supports two authentication methods with automatic fallback:
