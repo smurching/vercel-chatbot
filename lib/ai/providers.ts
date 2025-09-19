@@ -11,9 +11,69 @@ import type {
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
 
+// OAuth token management
+let oauthToken: string | null = null;
+let tokenExpiresAt: number = 0;
+
+async function getDatabricksToken(): Promise<string> {
+  // First, check if we have a PAT token
+  if (process.env.DATABRICKS_TOKEN) {
+    return process.env.DATABRICKS_TOKEN;
+  }
+
+  // Otherwise, use OAuth client credentials
+  console.log("Need to generate Databricks oauth token")
+  const clientId = process.env.DATABRICKS_CLIENT_ID;
+  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set');
+  }
+
+  // Check if we have a valid cached token
+  if (oauthToken && Date.now() < tokenExpiresAt) {
+    return oauthToken;
+  }
+
+  // Mint a new OAuth token
+  const databricksHost = process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com';
+  const tokenUrl = `${databricksHost}/oidc/v1/token`;
+
+  console.log('Minting new Databricks OAuth token...');
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials&scope=all-apis',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get OAuth token: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  oauthToken = data.access_token;
+  // Set expiration with a 5-minute buffer
+  tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
+
+  console.log(`OAuth token obtained, expires in ${data.expires_in} seconds`);
+  return oauthToken;
+}
+
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
+
+  // Get the appropriate token (PAT or OAuth)
+  const token = await getDatabricksToken();
+
+  // Update headers with the token
+  const headers = new Headers(init?.headers);
+  headers.set('Authorization', `Bearer ${token}`);
 
   // Log the request being sent to Databricks
   if (init?.body) {
@@ -35,7 +95,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
     }
   }
 
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, headers });
 
   if (!response.ok) {
     return response;
@@ -95,7 +155,8 @@ const databricksFetch: typeof fetch = async (input, init) => {
 // Create Databricks OpenAI-compatible provider using responses API
 const databricks = createOpenAI({
   baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
-  apiKey: process.env.DATABRICKS_TOKEN || '',
+  // We handle auth in databricksFetch, so we provide a dummy key here
+  apiKey: 'handled-by-fetch',
   fetch: databricksFetch,
 });
 
