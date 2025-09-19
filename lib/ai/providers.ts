@@ -101,7 +101,10 @@ const databricks = createOpenAI({
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
 const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
+const databricksChatEndpoint = "databricks-meta-llama-3-3-70b-instruct"
 const databricksModel = databricks.responses(servingEndpoint);
+const databricksChatModel = databricks.chat(databricksChatEndpoint);
+
 // Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
 // const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
@@ -151,8 +154,8 @@ const databricksProvider = customProvider({
         databricksMiddleware,
       ],
     }),
-    'title-model': databricksModel,
-    'artifact-model': databricksModel,
+    'title-model': databricksChatModel,
+    'artifact-model': databricksChatModel,
   },
 });
 
