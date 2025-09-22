@@ -157,8 +157,11 @@ const databricks = createOpenAI({
 });
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
+if (!process.env.DATABRICKS_SERVING_ENDPOINT) {
+  throw new Error('Please set the DATABRICKS_SERVING_ENDPOINT environment variable to the name of an agent serving endpoint');
+}
 const servingEndpoint =
-  process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
+  process.env.DATABRICKS_SERVING_ENDPOINT;
 const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
 const databricksModel = databricks.responses(servingEndpoint);
 const databricksChatModel = databricks.chat(databricksChatEndpoint);
