@@ -3,14 +3,18 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from 'ai';
-import { gateway } from '@ai-sdk/gateway';
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
 import type {
   LanguageModelV2Middleware,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-
+import { composeDatabricksStreamPartTransformers } from '../databricks-stream-part-transformers';
+import {
+  applyDatabricksToolCallStreamPartTransform,
+  DATABRICKS_TOOL_CALL_ID,
+} from '../databricks-tool-calling';
+import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
 
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
@@ -19,19 +23,21 @@ const databricksFetch: typeof fetch = async (input, init) => {
   // Log the request being sent to Databricks
   if (init?.body) {
     try {
-      const requestBody = typeof init.body === 'string'
-        ? JSON.parse(init.body)
-        : init.body;
-      console.log('Databricks request:', JSON.stringify({
-        url,
-        method: init.method || 'POST',
-        body: requestBody
-      }));
+      const requestBody =
+        typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+      console.log(
+        'Databricks request:',
+        JSON.stringify({
+          url,
+          method: init.method || 'POST',
+          body: requestBody,
+        }),
+      );
     } catch (e) {
       console.log('Databricks request (raw):', {
         url,
         method: init.method || 'POST',
-        body: init.body
+        body: init.body,
       });
     }
   }
@@ -58,11 +64,17 @@ const databricksFetch: typeof fetch = async (input, init) => {
             if (line.startsWith('data: ') && !line.includes('[DONE]')) {
               try {
                 const eventData = JSON.parse(line.slice(6));
-                console.log('🔍 RAW DATABRICKS CHUNK:', JSON.stringify(eventData, null, 2));
+                console.log(
+                  '🔍 RAW DATABRICKS CHUNK:',
+                  JSON.stringify(eventData, null, 2),
+                );
 
                 // Check specifically for function_call_output
                 if (eventData.item?.type === 'function_call_output') {
-                  console.log('✅ FOUND function_call_output:', eventData.item.output);
+                  console.log(
+                    '✅ FOUND function_call_output:',
+                    eventData.item.output,
+                  );
                 }
               } catch (e) {
                 console.log('🔍 RAW LINE (unparseable):', line);
@@ -76,7 +88,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
           console.error('Error in logging stream:', error);
           controller.enqueue(chunk);
         }
-      }
+      },
     });
 
     return new Response(response.body?.pipeThrough(loggingStream), {
@@ -145,8 +157,12 @@ const databricks = createOpenAI({
 });
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
-const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
-const databricksChatEndpoint = "databricks-meta-llama-3-3-70b-instruct"
+if (!process.env.DATABRICKS_SERVING_ENDPOINT) {
+  throw new Error('Please set the DATABRICKS_SERVING_ENDPOINT environment variable to the name of an agent serving endpoint');
+}
+const servingEndpoint =
+  process.env.DATABRICKS_SERVING_ENDPOINT;
+const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
 const databricksModel = databricks.responses(servingEndpoint);
 const databricksChatModel = databricks.chat(databricksChatEndpoint);
 
@@ -154,10 +170,24 @@ const databricksChatModel = databricks.chat(databricksChatEndpoint);
 // const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
 const databricksMiddleware: LanguageModelV2Middleware = {
+  transformParams: async ({ params }) => {
+    return {
+      ...params,
+      // Filter out the DATABRICKS_TOOL_CALL_ID tool
+      tools: params.tools?.filter(
+        (tool) => tool.name !== DATABRICKS_TOOL_CALL_ID,
+      ),
+    };
+  },
   wrapGenerate: async ({ doGenerate }) => doGenerate(),
   wrapStream: async ({ doStream }) => {
     const { stream, ...rest } = await doStream();
     let lastChunk = null as LanguageModelV2StreamPart | null;
+    const transformerStreamParts = composeDatabricksStreamPartTransformers(
+      applyDatabricksTextPartTransform,
+      applyDatabricksToolCallStreamPartTransform,
+    );
+
     const transformStream = new TransformStream<
       LanguageModelV2StreamPart,
       LanguageModelV2StreamPart
@@ -166,24 +196,23 @@ const databricksMiddleware: LanguageModelV2Middleware = {
         try {
           console.log('databricksMiddleware incoming chunk', chunk);
 
-          // Handle custom source chunks from Databricks
-          if ((chunk as any).type === 'source') {
-            // Convert source chunks to annotation format or pass through as-is
-            controller.enqueue(chunk);
-            return;
-          }
+          // Apply transformation functions to the incoming chunks
+          const { out, last } = transformerStreamParts([chunk], lastChunk);
+          console.log('databricksMiddleware outgoing chunks', out);
 
-          // Inject text part boundaries for standard chunks
-          const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
           // Enqueue the transformed chunks
           out.forEach((transformedChunk) => {
             controller.enqueue(transformedChunk);
           });
+
           // Update the last chunk
           lastChunk = last;
         } catch (error) {
           console.error('Error in databricksMiddleware transform:', error);
-          console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
+          console.error(
+            'Stack trace:',
+            error instanceof Error ? error.stack : 'No stack available',
+          );
           // Continue processing by passing through the original chunk
           controller.enqueue(chunk);
         }
@@ -243,42 +272,3 @@ export const myProvider = isTestEnvironment
       });
     })()
   : databricksProvider;
-
-function injectTextPartBoundaries(
-  incoming: LanguageModelV2StreamPart,
-  last: LanguageModelV2StreamPart | null,
-) {
-  const out: LanguageModelV2StreamPart[] = [];
-
-  // 1️⃣ Close a dangling text-delta when a non‑text chunk arrives.
-  if (
-    last?.type === 'text-delta' &&
-    incoming.type !== 'text-delta' &&
-    incoming.type !== 'text-end'
-  ) {
-    out.push({ type: 'text-end', id: last.id });
-  }
-
-  // 2️⃣ We have a fresh text‑delta chunk → inject a `text-start`.
-  else if (
-    incoming.type === 'text-delta' &&
-    (last === null || last.type !== 'text-delta')
-  ) {
-    out.push({ type: 'text-start', id: incoming.id });
-  }
-
-  // 3️⃣ A `text-delta` with a **different** id follows another `text-delta` → close the
-  //    previous one and start a new one.
-  else if (
-    incoming.type === 'text-delta' &&
-    last?.type === 'text-delta' &&
-    last.id !== incoming.id
-  ) {
-    out.push(
-      { type: 'text-end', id: last.id },
-      { type: 'text-start', id: incoming.id },
-    );
-  }
-
-  return { out: [...out, incoming], last: incoming };
-}
