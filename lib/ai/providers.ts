@@ -28,7 +28,9 @@ async function getDatabricksToken(): Promise<string> {
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set');
+    throw new Error(
+      'Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set',
+    );
   }
 
   // Check if we have a valid cached token
@@ -37,7 +39,9 @@ async function getDatabricksToken(): Promise<string> {
   }
 
   // Mint a new OAuth token
-  const databricksHost = process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com';
+  const databricksHost =
+    process.env.DATABRICKS_HOST ||
+    'https://e2-dogfood.staging.cloud.databricks.com';
   const tokenUrl = `${databricksHost}/oidc/v1/token`;
 
   console.log('Minting new Databricks OAuth token...');
@@ -45,7 +49,9 @@ async function getDatabricksToken(): Promise<string> {
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
-      'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+      Authorization:
+        'Basic ' +
+        Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials&scope=all-apis',
@@ -53,7 +59,9 @@ async function getDatabricksToken(): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to get OAuth token: ${response.status} ${errorText}`);
+    throw new Error(
+      `Failed to get OAuth token: ${response.status} ${errorText}`,
+    );
   }
 
   const data = await response.json();
@@ -72,26 +80,33 @@ const databricksFetch: typeof fetch = async (input, init) => {
   // Log the request being sent to Databricks
   if (init?.body) {
     try {
-      const requestBody = typeof init.body === 'string'
-        ? JSON.parse(init.body)
-        : init.body;
-      console.log('Databricks request:', JSON.stringify({
-        url,
-        method: init.method || 'POST',
-        body: requestBody
-      }));
+      const requestBody =
+        typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+      console.log(
+        'Databricks request:',
+        JSON.stringify({
+          url,
+          method: init.method || 'POST',
+          body: requestBody,
+        }),
+      );
     } catch (e) {
       console.log('Databricks request (raw):', {
         url,
         method: init.method || 'POST',
-        body: init.body
+        body: init.body,
       });
     }
   }
 
   // Check the authorization header to see what token is being used
-  const authHeader = init?.headers ? new Headers(init.headers).get('Authorization') : null;
-  console.log('Authorization header:', authHeader ? authHeader.substring(0, 20) + '...' : 'none');
+  const authHeader = init?.headers
+    ? new Headers(init.headers).get('Authorization')
+    : null;
+  console.log(
+    'Authorization header:',
+    authHeader ? authHeader.substring(0, 20) + '...' : 'none',
+  );
 
   const response = await fetch(url, init);
 
@@ -100,6 +115,56 @@ const databricksFetch: typeof fetch = async (input, init) => {
   }
 
   const contentType = response.headers.get('content-type');
+
+  // Handle streaming responses (text/event-stream) - add raw logging
+  if (contentType?.includes('text/event-stream')) {
+    console.log('🔍 Streaming response detected, adding raw chunk logging...');
+
+    const loggingStream = new TransformStream({
+      transform(chunk, controller) {
+        try {
+          const text = new TextDecoder().decode(chunk);
+          const lines = text.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              try {
+                const eventData = JSON.parse(line.slice(6));
+                console.log(
+                  '🔍 RAW DATABRICKS CHUNK:',
+                  JSON.stringify(eventData, null, 2),
+                );
+
+                // Check specifically for function_call_output
+                if (eventData.item?.type === 'function_call_output') {
+                  console.log(
+                    '✅ FOUND function_call_output:',
+                    eventData.item.output,
+                  );
+                }
+              } catch (e) {
+                console.log('🔍 RAW LINE (unparseable):', line);
+              }
+            }
+          }
+
+          // Pass through unchanged
+          controller.enqueue(chunk);
+        } catch (error) {
+          console.error('Error in logging stream:', error);
+          controller.enqueue(chunk);
+        }
+      },
+    });
+
+    return new Response(response.body?.pipeThrough(loggingStream), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  }
+
+  // Handle non-streaming JSON responses
   if (!contentType?.includes('application/json')) {
     return response;
   }
@@ -152,10 +217,12 @@ const databricksFetch: typeof fetch = async (input, init) => {
 
 // Check auth method and set up provider accordingly
 let databricks: ReturnType<typeof createOpenAI>;
-console.log(JSON.stringify([
-    process.env["DATABRICKS_CLIENT_SECRET"],
+console.log(
+  JSON.stringify([
+    process.env['DATABRICKS_CLIENT_SECRET'],
     process.env['DATABRICKS_CLIENT_ID'],
-]));
+  ]),
+);
 if (process.env.DATABRICKS_TOKEN) {
   console.log('Using PAT authentication');
   // Use PAT directly
@@ -164,7 +231,10 @@ if (process.env.DATABRICKS_TOKEN) {
     apiKey: process.env.DATABRICKS_TOKEN,
     fetch: databricksFetch,
   });
-} else if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+} else if (
+  process.env.DATABRICKS_CLIENT_ID &&
+  process.env.DATABRICKS_CLIENT_SECRET
+) {
   console.log('Using OAuth authentication');
   // Use OAuth - get token once and create provider
   const initializeWithOAuth = async () => {
@@ -182,7 +252,7 @@ if (process.env.DATABRICKS_TOKEN) {
   // Proxy all methods to the resolved provider
   databricks = new Proxy({} as ReturnType<typeof createOpenAI>, {
     get(target, prop) {
-      return async function(...args: any[]) {
+      return async function (...args: any[]) {
         const provider = await oauthProviderPromise;
         const method = (provider as any)[prop];
         if (typeof method === 'function') {
@@ -190,15 +260,21 @@ if (process.env.DATABRICKS_TOKEN) {
         }
         return method;
       };
-    }
+    },
   });
 } else {
-  throw new Error('Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set');
+  throw new Error(
+    'Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set',
+  );
 }
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
-const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
+const servingEndpoint =
+  process.env.DATABRICKS_SERVING_ENDPOINT || 'agents_ml-bbqiu-annotationsv2';
+const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
 const databricksModel = databricks.responses(servingEndpoint);
+const databricksChatModel = databricks.chat(databricksChatEndpoint);
+
 // Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
 // const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
@@ -212,18 +288,42 @@ const databricksMiddleware: LanguageModelV2Middleware = {
       LanguageModelV2StreamPart
     >({
       transform(chunk, controller) {
-        console.log('databricksMiddleware incoming chunk', chunk);
-        // Inject text part boundaries
-        const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
-        // Enqueue the transformed chunks
-        out.forEach((chunk) => controller.enqueue(chunk));
-        // Update the last chunk
-        lastChunk = last;
+        try {
+          console.log('databricksMiddleware incoming chunk', chunk);
+
+          // Handle custom source chunks from Databricks
+          if ((chunk as any).type === 'source') {
+            // Convert source chunks to annotation format or pass through as-is
+            controller.enqueue(chunk);
+            return;
+          }
+
+          // Inject text part boundaries for standard chunks
+          const { out, last } = injectTextPartBoundaries(chunk, lastChunk);
+          // Enqueue the transformed chunks
+          out.forEach((transformedChunk) => {
+            controller.enqueue(transformedChunk);
+          });
+          // Update the last chunk
+          lastChunk = last;
+        } catch (error) {
+          console.error('Error in databricksMiddleware transform:', error);
+          console.error(
+            'Stack trace:',
+            error instanceof Error ? error.stack : 'No stack available',
+          );
+          // Continue processing by passing through the original chunk
+          controller.enqueue(chunk);
+        }
       },
       flush(controller) {
-        // Finally, if there's a dangling text-delta, close it
-        if (lastChunk?.type === 'text-delta') {
-          controller.enqueue({ type: 'text-end', id: lastChunk.id });
+        try {
+          // Finally, if there's a dangling text-delta, close it
+          if (lastChunk?.type === 'text-delta') {
+            controller.enqueue({ type: 'text-end', id: lastChunk.id });
+          }
+        } catch (error) {
+          console.error('Error in databricksMiddleware flush:', error);
         }
       },
     });
@@ -248,8 +348,8 @@ const databricksProvider = customProvider({
         databricksMiddleware,
       ],
     }),
-    'title-model': databricksModel,
-    'artifact-model': databricksModel,
+    'title-model': databricksChatModel,
+    'artifact-model': databricksChatModel,
   },
 });
 

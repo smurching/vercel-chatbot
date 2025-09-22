@@ -11,6 +11,7 @@ import {
   UIDataTypes,
   type UIMessage,
   wrapLanguageModel,
+  type CoreMessage,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
@@ -44,13 +45,9 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
-import { openai } from '@ai-sdk/openai';
-import {
-  LanguageModelV2Middleware,
-  LanguageModelV2StreamPart,
-} from '@ai-sdk/provider';
 
 export const maxDuration = 60;
+
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -174,15 +171,6 @@ export async function POST(request: Request) {
           // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
@@ -224,7 +212,9 @@ export async function POST(request: Request) {
           }
         }
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('Stream error:', error);
+        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
         return 'Oops, an error occurred!';
       },
     });
@@ -241,6 +231,7 @@ export async function POST(request: Request) {
     }
 
     console.error('Unhandled error in chat API:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack available');
     return new ChatSDKError('offline:chat').toResponse();
   }
 }
