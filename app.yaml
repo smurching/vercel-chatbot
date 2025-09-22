@@ -17,7 +17,7 @@ env:
   - name: DATABRICKS_TOKEN
     valueFrom: smurching-pat
   - name: DATABRICKS_SERVING_ENDPOINT
-    valueFrom: serving-endpoint-name
+    valueFrom: serving-endpoint
   - name: AI_GATEWAY_API_KEY
     value: "does_not_matter"
   - name: AUTH_TRUST_HOST
