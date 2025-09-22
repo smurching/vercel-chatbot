@@ -18,9 +18,9 @@ import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
 
 // OAuth token management
 let oauthToken: string | null = null;
-let tokenExpiresAt: number = 0;
+let tokenExpiresAt = 0;
 
-async function getDatabricksToken(): Promise<string> {
+async function getDatabricksToken(): Promise<string | null> {
   // First, check if we have a PAT token
   if (process.env.DATABRICKS_TOKEN) {
     console.log('Using PAT token from DATABRICKS_TOKEN env var');
@@ -54,9 +54,7 @@ async function getDatabricksToken(): Promise<string> {
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
-      Authorization:
-        'Basic ' +
-        Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials&scope=all-apis',
@@ -110,7 +108,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
     : null;
   console.log(
     'Authorization header:',
-    authHeader ? authHeader.substring(0, 20) + '...' : 'none',
+    authHeader ? `${authHeader.substring(0, 20)}...` : 'none',
   );
 
   const response = await fetch(url, init);
@@ -224,8 +222,8 @@ const databricksFetch: typeof fetch = async (input, init) => {
 let databricks: ReturnType<typeof createOpenAI>;
 console.log(
   JSON.stringify([
-    process.env['DATABRICKS_CLIENT_SECRET'],
-    process.env['DATABRICKS_CLIENT_ID'],
+    process.env.DATABRICKS_CLIENT_SECRET,
+    process.env.DATABRICKS_CLIENT_ID,
   ]),
 );
 if (process.env.DATABRICKS_TOKEN) {
@@ -244,6 +242,9 @@ if (process.env.DATABRICKS_TOKEN) {
   // Use OAuth - get token once and create provider
   const initializeWithOAuth = async () => {
     const token = await getDatabricksToken();
+    if (!token) {
+      throw new Error('Failed to get Databricks token');
+    }
     return createOpenAI({
       baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
       apiKey: token,
@@ -257,7 +258,7 @@ if (process.env.DATABRICKS_TOKEN) {
   // Proxy all methods to the resolved provider
   databricks = new Proxy({} as ReturnType<typeof createOpenAI>, {
     get(target, prop) {
-      return async function (...args: any[]) {
+      return async (...args: any[]) => {
         const provider = await oauthProviderPromise;
         const method = (provider as any)[prop];
         if (typeof method === 'function') {
