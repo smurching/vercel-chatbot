@@ -72,15 +72,3 @@ export function composeDatabricksStreamPartTransformers<
     };
   };
 }
-
-// const composeDatabricksStreamPartTransformers = <
-//   Out extends LanguageModelV2StreamPart[],
-// >(
-//   transformers: DatabricksStreamPartTransformer<Out>[],
-// ): DatabricksStreamPartTransformer<Out> => {
-//   return (parts: LanguageModelV2StreamPart[]) => {
-//     return transformers.reduce((acc, transformer) => transformer(acc.out), {
-//       out: parts,
-//     });
-//   };
-// };
