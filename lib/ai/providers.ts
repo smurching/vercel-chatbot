@@ -225,13 +225,6 @@ let oauthProviderCache: ReturnType<typeof createOpenAI> | null = null;
 let oauthProviderCacheTime = 0;
 const PROVIDER_CACHE_DURATION = 5 * 60 * 1000; // Cache provider for 5 minutes
 
-console.log(
-  JSON.stringify([
-    process.env.DATABRICKS_CLIENT_SECRET,
-    process.env.DATABRICKS_CLIENT_ID,
-  ]),
-);
-
 // Helper function to get or create the Databricks provider with OAuth
 async function getOrCreateDatabricksProvider(): Promise<ReturnType<typeof createOpenAI>> {
   // Check if we have a cached provider that's still fresh
