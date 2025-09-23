@@ -218,6 +218,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
   });
 };
 
+
 // Check auth method and set up provider accordingly
 let databricks: ReturnType<typeof createOpenAI>;
 console.log(
@@ -226,7 +227,14 @@ console.log(
     process.env.DATABRICKS_CLIENT_ID,
   ]),
 );
-if (process.env.DATABRICKS_TOKEN) {
+if (typeof window !== 'undefined') {
+  console.log('In frontend, using dummy provider');
+  databricks = createOpenAI({
+    baseURL: `dummy-provider-frontend`,
+    apiKey: 'dummy-key',
+  });
+}
+else if (process.env.DATABRICKS_TOKEN) {
   console.log('Using PAT authentication');
   // Use PAT directly
   databricks = createOpenAI({
@@ -268,10 +276,6 @@ if (process.env.DATABRICKS_TOKEN) {
       };
     },
   });
-} else {
-  throw new Error(
-    'Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set',
-  );
 }
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
