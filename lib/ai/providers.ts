@@ -6,6 +6,7 @@ import {
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
 import type {
+  LanguageModelV2,
   LanguageModelV2Middleware,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
@@ -369,6 +370,25 @@ const databricksMiddleware: LanguageModelV2Middleware = {
   },
 };
 
+// Get the task type of the serving endpoint
+const getEndpointDetails = async (servingEndpoint: string) => {
+  // Always get fresh token for each request (will use cache if valid)
+  const currentToken = await getDatabricksToken();
+  const headers = new Headers();
+  headers.set('Authorization', `Bearer ${currentToken}`);
+
+  const response = await databricksFetch(
+    // `${workspaceHostname}/serving-endpoints/${servingEndpoint}`,
+    `${workspaceHostname}/api/2.0/serving-endpoints/${servingEndpoint}`,
+    {
+      method: 'GET',
+      headers,
+    },
+  );
+  const data = await response.json();
+  return { task: data.task as string | undefined };
+};
+
 // Create a smart provider wrapper that handles OAuth initialization
 interface SmartProvider {
   languageModel(id: string): Promise<any> | any;
@@ -379,6 +399,7 @@ class OAuthAwareProvider implements SmartProvider {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   async languageModel(id: string): Promise<any> {
+    const endpointDetails = await getEndpointDetails(servingEndpoint);
     // Check cache first
     const cached = this.modelCache.get(id);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
@@ -391,14 +412,21 @@ class OAuthAwareProvider implements SmartProvider {
     // Get the OAuth provider
     const provider = await getOrCreateDatabricksProvider();
 
-    let baseModel;
+    let baseModel: LanguageModelV2;
     if (id === 'title-model' || id === 'artifact-model') {
       baseModel = provider.chat(databricksChatEndpoint);
     } else {
-      baseModel = provider.responses(servingEndpoint);
+      if (endpointDetails.task?.includes('responses')) {
+        baseModel = provider.responses(servingEndpoint);
+      } else if (endpointDetails.task?.includes('chat')) {
+        baseModel = provider.chat(servingEndpoint);
+      } else {
+        // Fall back to responses
+        baseModel = provider.responses(servingEndpoint);
+      }
     }
 
-    let finalModel;
+    let finalModel: LanguageModelV2;
     if (id === 'chat-model' || id === 'chat-model-reasoning') {
       finalModel = wrapLanguageModel({
         model: baseModel,
