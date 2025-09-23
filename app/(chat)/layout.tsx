@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -13,8 +13,13 @@ export default async function Layout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, cookieStore] = await Promise.all([auth(), cookies()]);
+  const [session, cookieStore, headersList] = await Promise.all([
+    auth(),
+    cookies(),
+    headers(),
+  ]);
   const isCollapsed = cookieStore.get('sidebar:state')?.value !== 'true';
+  const preferredUsername = headersList.get('x-forwarded-preferred-username');
 
   return (
     <>
@@ -24,7 +29,7 @@ export default async function Layout({
       />
       <DataStreamProvider>
         <SidebarProvider defaultOpen={!isCollapsed}>
-          <AppSidebar user={session?.user} />
+          <AppSidebar user={session?.user} preferredUsername={preferredUsername} />
           <SidebarInset>{children}</SidebarInset>
         </SidebarProvider>
       </DataStreamProvider>

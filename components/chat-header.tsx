@@ -45,14 +45,6 @@ function PureChatHeader({
           <span className="md:sr-only">New Chat</span>
         </Button>
       )}
-
-      {!isReadonly && (
-        <VisibilitySelector
-          chatId={chatId}
-          selectedVisibilityType={selectedVisibilityType}
-          className="order-1 md:order-2"
-        />
-      )}
     </header>
   );
 }
