@@ -44,10 +44,7 @@ async function getDatabricksToken(): Promise<string | null> {
   }
 
   // Mint a new OAuth token
-  const databricksHost =
-    process.env.DATABRICKS_HOST ||
-    'https://e2-dogfood.staging.cloud.databricks.com';
-  const tokenUrl = `${databricksHost}/oidc/v1/token`;
+  const tokenUrl = `${workspaceHostname}/oidc/v1/token`;
 
   console.log('Minting new Databricks OAuth token...');
 
@@ -76,6 +73,7 @@ async function getDatabricksToken(): Promise<string | null> {
   return oauthToken;
 }
 
+const workspaceHostname = process.env.DATABRICKS_HOST ? `https://${process.env.DATABRICKS_HOST}` : 'unknown-databricks-workspace-host';
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
@@ -241,7 +239,7 @@ async function getOrCreateDatabricksProvider(): Promise<ReturnType<typeof create
 
   // Create provider with fetch that always uses fresh token
   const provider = createOpenAI({
-    baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+    baseURL: `${workspaceHostname}/serving-endpoints`,
     apiKey: token,
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       // Always get fresh token for each request (will use cache if valid)
@@ -272,7 +270,7 @@ else if (process.env.DATABRICKS_TOKEN) {
   console.log('Using PAT authentication');
   // Use PAT directly
   databricks = createOpenAI({
-    baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+    baseURL: `${workspaceHostname}/serving-endpoints`,
     apiKey: process.env.DATABRICKS_TOKEN,
     fetch: databricksFetch,
   });
@@ -284,6 +282,10 @@ else if (process.env.DATABRICKS_TOKEN) {
 
   // Create placeholder that will be replaced by actual provider on first use
   databricks = {} as ReturnType<typeof createOpenAI>;
+} else {
+  throw new Error(
+      'Please set either DATABRICKS_TOKEN for PAT auth or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET for OAuth',
+  );
 }
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
