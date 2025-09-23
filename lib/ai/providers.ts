@@ -370,8 +370,22 @@ const databricksMiddleware: LanguageModelV2Middleware = {
   },
 };
 
+const endpointDetailsCache = new Map<
+  string,
+  { task: string | undefined; timestamp: number }
+>();
+const ENDPOINT_DETAILS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Get the task type of the serving endpoint
 const getEndpointDetails = async (servingEndpoint: string) => {
+  const cached = endpointDetailsCache.get(servingEndpoint);
+  if (
+    cached &&
+    Date.now() - cached.timestamp < ENDPOINT_DETAILS_CACHE_DURATION
+  ) {
+    return cached;
+  }
+
   // Always get fresh token for each request (will use cache if valid)
   const currentToken = await getDatabricksToken();
   const headers = new Headers();
@@ -386,7 +400,12 @@ const getEndpointDetails = async (servingEndpoint: string) => {
     },
   );
   const data = await response.json();
-  return { task: data.task as string | undefined };
+  const returnValue = {
+    task: data.task as string | undefined,
+    timestamp: Date.now(),
+  };
+  endpointDetailsCache.set(servingEndpoint, returnValue);
+  return returnValue;
 };
 
 // Create a smart provider wrapper that handles OAuth initialization
