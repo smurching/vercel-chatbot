@@ -14,8 +14,9 @@ export async function POST(request: Request) {
     }
 
     // Simple text generation without database saves
+    const model = await myProvider.languageModel('chat-model');
     const result = await generateText({
-      model: myProvider.languageModel('chat-model'),
+      model,
       messages: messages,
     });
 

@@ -128,8 +128,9 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
+        const model = await myProvider.languageModel(selectedChatModel);
         const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
+          model,
           // TODO(smurching): conditionally include system prompt? It seems to break
           // Agent Bricks KA endpoints
           // system: systemPrompt({ selectedChatModel, requestHints }),

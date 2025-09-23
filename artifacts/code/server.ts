@@ -9,8 +9,9 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
   onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = '';
 
+    const model = await myProvider.languageModel('artifact-model');
     const { fullStream } = streamObject({
-      model: myProvider.languageModel('artifact-model'),
+      model,
       system: codePrompt,
       prompt: title,
       schema: z.object({
@@ -42,8 +43,9 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
   onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = '';
 
+    const model = await myProvider.languageModel('artifact-model');
     const { fullStream } = streamObject({
-      model: myProvider.languageModel('artifact-model'),
+      model,
       system: updateDocumentPrompt(document.content, 'code'),
       prompt: description,
       schema: z.object({

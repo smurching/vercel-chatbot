@@ -221,12 +221,53 @@ const databricksFetch: typeof fetch = async (input, init) => {
 
 // Check auth method and set up provider accordingly
 let databricks: ReturnType<typeof createOpenAI>;
+let oauthProviderCache: ReturnType<typeof createOpenAI> | null = null;
+let oauthProviderCacheTime = 0;
+const PROVIDER_CACHE_DURATION = 5 * 60 * 1000; // Cache provider for 5 minutes
+
 console.log(
   JSON.stringify([
     process.env.DATABRICKS_CLIENT_SECRET,
     process.env.DATABRICKS_CLIENT_ID,
   ]),
 );
+
+// Helper function to get or create the Databricks provider with OAuth
+async function getOrCreateDatabricksProvider(): Promise<ReturnType<typeof createOpenAI>> {
+  // Check if we have a cached provider that's still fresh
+  if (oauthProviderCache && Date.now() - oauthProviderCacheTime < PROVIDER_CACHE_DURATION) {
+    console.log('Using cached OAuth provider');
+    return oauthProviderCache;
+  }
+
+  console.log('Creating new OAuth provider');
+  const token = await getDatabricksToken();
+  if (!token) {
+    throw new Error('Failed to get Databricks token');
+  }
+
+  // Create provider with fetch that always uses fresh token
+  const provider = createOpenAI({
+    baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
+    apiKey: token,
+    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+      // Always get fresh token for each request (will use cache if valid)
+      const currentToken = await getDatabricksToken();
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${currentToken}`);
+
+      return databricksFetch(input, {
+        ...init,
+        headers,
+      });
+    },
+  });
+
+  oauthProviderCache = provider;
+  oauthProviderCacheTime = Date.now();
+  return provider;
+}
+
 if (typeof window !== 'undefined') {
   console.log('In frontend, using dummy provider');
   databricks = createOpenAI({
@@ -247,35 +288,9 @@ else if (process.env.DATABRICKS_TOKEN) {
   process.env.DATABRICKS_CLIENT_SECRET
 ) {
   console.log('Using OAuth authentication');
-  // Use OAuth - get token once and create provider
-  const initializeWithOAuth = async () => {
-    const token = await getDatabricksToken();
-    if (!token) {
-      throw new Error('Failed to get Databricks token');
-    }
-    return createOpenAI({
-      baseURL: `${process.env.DATABRICKS_HOST || 'https://e2-dogfood.staging.cloud.databricks.com'}/serving-endpoints`,
-      apiKey: token,
-      fetch: databricksFetch,
-    });
-  };
 
-  // Create a promise-based provider
-  const oauthProviderPromise = initializeWithOAuth();
-
-  // Proxy all methods to the resolved provider
-  databricks = new Proxy({} as ReturnType<typeof createOpenAI>, {
-    get(target, prop) {
-      return async (...args: any[]) => {
-        const provider = await oauthProviderPromise;
-        const method = (provider as any)[prop];
-        if (typeof method === 'function') {
-          return method.apply(provider, args);
-        }
-        return method;
-      };
-    },
-  });
+  // Create placeholder that will be replaced by actual provider on first use
+  databricks = {} as ReturnType<typeof createOpenAI>;
 }
 
 // Use the Databricks serving endpoint from environment variable or fallback to default
@@ -291,11 +306,6 @@ if (isServer) {
 const servingEndpoint =
   process.env.DATABRICKS_SERVING_ENDPOINT || '';
 const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
-const databricksModel = databricks.responses(servingEndpoint);
-const databricksChatModel = databricks.chat(databricksChatEndpoint);
-
-// Use the Databricks chat endpoint with ChatAgent (not quite chat completions) API, just for testing purposes
-// const databricksModel = databricks.chat('agents_ml-samrag-test_chatagent');
 
 const databricksMiddleware: LanguageModelV2Middleware = {
   transformParams: async ({ params }) => {
@@ -364,26 +374,86 @@ const databricksMiddleware: LanguageModelV2Middleware = {
   },
 };
 
-const databricksProvider = customProvider({
-  languageModels: {
-    'chat-model': wrapLanguageModel({
-      model: databricksModel,
-      middleware: [
-        extractReasoningMiddleware({ tagName: 'think' }),
-        databricksMiddleware,
-      ],
-    }),
-    'chat-model-reasoning': wrapLanguageModel({
-      model: databricksModel,
-      middleware: [
-        extractReasoningMiddleware({ tagName: 'think' }),
-        databricksMiddleware,
-      ],
-    }),
-    'title-model': databricksChatModel,
-    'artifact-model': databricksChatModel,
-  },
-});
+// Create a smart provider wrapper that handles OAuth initialization
+interface SmartProvider {
+  languageModel(id: string): Promise<any> | any;
+}
+
+class OAuthAwareProvider implements SmartProvider {
+  private modelCache = new Map<string, { model: any; timestamp: number }>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  async languageModel(id: string): Promise<any> {
+    // Check cache first
+    const cached = this.modelCache.get(id);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      console.log(`Using cached model for ${id}`);
+      return cached.model;
+    }
+
+    console.log(`Creating fresh model for ${id}`);
+
+    // Get the OAuth provider
+    const provider = await getOrCreateDatabricksProvider();
+
+    let baseModel;
+    if (id === 'title-model' || id === 'artifact-model') {
+      baseModel = provider.chat(databricksChatEndpoint);
+    } else {
+      baseModel = provider.responses(servingEndpoint);
+    }
+
+    let finalModel;
+    if (id === 'chat-model' || id === 'chat-model-reasoning') {
+      finalModel = wrapLanguageModel({
+        model: baseModel,
+        middleware: [
+          extractReasoningMiddleware({ tagName: 'think' }),
+          databricksMiddleware,
+        ],
+      });
+    } else {
+      finalModel = baseModel;
+    }
+
+    // Cache the model
+    this.modelCache.set(id, { model: finalModel, timestamp: Date.now() });
+    return finalModel;
+  }
+}
+
+// Create the appropriate provider based on authentication method
+let databricksProvider: SmartProvider;
+
+if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET && typeof window === 'undefined') {
+  // OAuth path - use the smart provider
+  databricksProvider = new OAuthAwareProvider();
+} else {
+  // PAT auth or frontend - create models immediately
+  const databricksModel = databricks.responses(servingEndpoint);
+  const databricksChatModel = databricks.chat(databricksChatEndpoint);
+
+  databricksProvider = customProvider({
+    languageModels: {
+      'chat-model': wrapLanguageModel({
+        model: databricksModel,
+        middleware: [
+          extractReasoningMiddleware({ tagName: 'think' }),
+          databricksMiddleware,
+        ],
+      }),
+      'chat-model-reasoning': wrapLanguageModel({
+        model: databricksModel,
+        middleware: [
+          extractReasoningMiddleware({ tagName: 'think' }),
+          databricksMiddleware,
+        ],
+      }),
+      'title-model': databricksChatModel,
+      'artifact-model': databricksChatModel,
+    },
+  });
+}
 
 export const myProvider = isTestEnvironment
   ? (() => {
