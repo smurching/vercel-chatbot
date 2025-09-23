@@ -247,15 +247,15 @@ const databricksProvider = customProvider({
     'chat-model': wrapLanguageModel({
       model: databricksModel,
       middleware: [
-        databricksMiddleware,
         extractReasoningMiddleware({ tagName: 'think' }),
+        databricksMiddleware,
       ],
     }),
     'chat-model-reasoning': wrapLanguageModel({
       model: databricksModel,
       middleware: [
-        databricksMiddleware,
         extractReasoningMiddleware({ tagName: 'think' }),
+        databricksMiddleware,
       ],
     }),
     'title-model': databricksChatModel,

@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type {
-  InferUIDataParts,
   InferUITool,
   LanguageModelUsage,
   UIMessage,
