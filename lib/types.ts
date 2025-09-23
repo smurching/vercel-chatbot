@@ -1,12 +1,16 @@
 import { z } from 'zod';
-import type { getWeather } from './ai/tools/get-weather';
-import type { createDocument } from './ai/tools/create-document';
-import type { updateDocument } from './ai/tools/update-document';
-import type { requestSuggestions } from './ai/tools/request-suggestions';
-import type { InferUITool, LanguageModelUsage, UIMessage } from 'ai';
+import type {
+  InferUITool,
+  LanguageModelUsage,
+  UIMessage,
+} from 'ai';
 
 import type { ArtifactKind } from '@/components/artifact';
 import type { Suggestion } from './db/schema';
+import type {
+  DATABRICKS_TOOL_CALL_ID,
+  DATABRICKS_TOOL_DEFINITION,
+} from './databricks-tool-calling';
 
 export type DataPart = { type: 'append-message'; message: string };
 
@@ -16,18 +20,10 @@ export const messageMetadataSchema = z.object({
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
-type weatherTool = InferUITool<typeof getWeather>;
-type createDocumentTool = InferUITool<ReturnType<typeof createDocument>>;
-type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
-type requestSuggestionsTool = InferUITool<
-  ReturnType<typeof requestSuggestions>
->;
+type databricksToolCall = InferUITool<typeof DATABRICKS_TOOL_DEFINITION>;
 
 export type ChatTools = {
-  getWeather: weatherTool;
-  createDocument: createDocumentTool;
-  updateDocument: updateDocumentTool;
-  requestSuggestions: requestSuggestionsTool;
+  [K in typeof DATABRICKS_TOOL_CALL_ID]: databricksToolCall;
 };
 
 export type CustomUIDataTypes = {
