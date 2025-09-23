@@ -33,6 +33,9 @@ export const applyDatabricksTextPartTransform: DatabricksStreamPartTransformer<
       currentLast?.type !== 'text-delta'
     ) {
       // Filter this one out
+    } else {
+      // Otherwise, pass through the incoming chunk
+      out.push(incoming);
     }
 
     currentLast = out[out.length - 1] ?? currentLast;
