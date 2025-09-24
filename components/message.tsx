@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { memo, useState } from 'react';
+import React, { memo, useState } from 'react';
 import type { Vote } from '@/lib/db/schema';
 import { SparklesIcon } from './icons';
 import { Response } from './elements/response';
@@ -21,6 +21,10 @@ import { MessageReasoning } from './message-reasoning';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
+import {
+  createMessagePartSegments,
+  joinMessagePartSegments,
+} from './databricks-message-citation';
 
 const PurePreviewMessage = ({
   chatId,
@@ -50,6 +54,15 @@ const PurePreviewMessage = ({
   );
 
   useDataStream();
+
+  const partSegments = React.useMemo(
+    /**
+     * We segment message parts into segments that can be rendered as a single component.
+     * Used to render citations as part of the associated text.
+     */
+    () => createMessagePartSegments(message.parts),
+    [message.parts],
+  );
 
   return (
     <motion.div
@@ -105,7 +118,8 @@ const PurePreviewMessage = ({
             </div>
           )}
 
-          {message.parts?.map((part, index) => {
+          {partSegments?.map((parts, index) => {
+            const [part] = parts;
             const { type } = part;
             const key = `message-${message.id}-part-${index}`;
 
@@ -137,7 +151,9 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response>{sanitizeText(part.text)}</Response>
+                      <Response>
+                        {sanitizeText(joinMessagePartSegments(parts))}
+                      </Response>
                     </MessageContent>
                   </div>
                 );
