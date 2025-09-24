@@ -105,10 +105,6 @@ const databricksFetch: typeof fetch = async (input, init) => {
   const authHeader = init?.headers
     ? new Headers(init.headers).get('Authorization')
     : null;
-  console.log(
-    'Authorization header:',
-    authHeader ? `${authHeader.substring(0, 20)}...` : 'none',
-  );
 
   const response = await fetch(url, init);
 
