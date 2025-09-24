@@ -9,8 +9,9 @@ export const sheetDocumentHandler = createDocumentHandler<'sheet'>({
   onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = '';
 
+    const model = await myProvider.languageModel('artifact-model');
     const { fullStream } = streamObject({
-      model: myProvider.languageModel('artifact-model'),
+      model,
       system: sheetPrompt,
       prompt: title,
       schema: z.object({
@@ -48,8 +49,9 @@ export const sheetDocumentHandler = createDocumentHandler<'sheet'>({
   onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = '';
 
+    const model = await myProvider.languageModel('artifact-model');
     const { fullStream } = streamObject({
-      model: myProvider.languageModel('artifact-model'),
+      model,
       system: updateDocumentPrompt(document.content, 'sheet'),
       prompt: description,
       schema: z.object({

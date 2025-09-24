@@ -195,9 +195,11 @@ function PureMultimodalInput({
 
   const contextMax = useMemo(() => {
     // Resolve from selected model; stable across chunks.
-    const cw = getContextWindow(modelResolver.modelId);
+    // Fallback to selectedModelId if modelResolver.modelId is undefined (client-side dummy provider)
+    const modelId = modelResolver?.modelId || selectedModelId;
+    const cw = getContextWindow(modelId);
     return cw.combinedMax ?? cw.inputMax ?? 0;
-  }, [modelResolver]);
+  }, [modelResolver, selectedModelId]);
 
   const usedTokens = useMemo(() => {
     // Prefer explicit usage data part captured via onData
