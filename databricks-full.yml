@@ -1,0 +1,63 @@
+bundle:
+  name: vercel-chatbot
+
+variables:
+  serving_endpoint_name:
+    description: "Name of the model serving endpoint to be used by the app"
+    default: "agents_ml-bbqiu-annotationsv2"
+
+  database_instance_name:
+    description: "Name of the Lakebase database instance"
+    default: "chatbot-lakebase-${bundle.target}"
+
+resources:
+  database_instances:
+    chatbot_lakebase:
+      name: ${var.database_instance_name}
+      capacity: CU_1
+      enable_pg_native_login: true
+      enable_readable_secondaries: false
+      node_count: 1
+      retention_window_in_days: 7
+
+  database_catalogs:
+    chatbot_catalog:
+      database_instance_name: ${resources.database_instances.chatbot_lakebase.name}
+      name: chatbot_catalog_${bundle.target}
+      database_name: chatbot_db
+      create_database_if_not_exists: true
+
+  apps:
+    vercel_chatbot:
+      name: vercel-chatbot-${bundle.target}
+      description: "Vercel chatbot application with Lakebase backend"
+      source_code_path: .
+      resources:
+        - name: serving-endpoint-name
+          description: "Databricks serving endpoint name for the AI agent"
+          serving_endpoint:
+            name: ${var.serving_endpoint_name}
+            permission: CAN_QUERY
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
+    variables:
+      database_instance_name: "chatbot-lakebase-dev"
+
+  staging:
+    mode: production
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
+    variables:
+      database_instance_name: "chatbot-lakebase-staging"
+
+  prod:
+    mode: production
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
+    variables:
+      database_instance_name: "chatbot-lakebase-prod"

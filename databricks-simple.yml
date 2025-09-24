@@ -1,0 +1,37 @@
+bundle:
+  name: vercel-chatbot
+
+variables:
+  serving_endpoint_name:
+    description: "Name of the model serving endpoint to be used by the app"
+    default: "agents_ml-bbqiu-annotationsv2"
+
+resources:
+  apps:
+    vercel_chatbot:
+      name: vercel-chatbot-${bundle.target}
+      description: "Vercel chatbot application"
+      source_code_path: .
+      resources:
+        - name: serving-endpoint-name
+          description: "Databricks serving endpoint name for the AI agent"
+          serving_endpoint:
+            name: ${var.serving_endpoint_name}
+            permission: CAN_QUERY
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
+
+  staging:
+    mode: production
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://e2-dogfood.staging.cloud.databricks.com
