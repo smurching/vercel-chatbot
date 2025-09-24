@@ -16,6 +16,7 @@ import {
   DATABRICKS_TOOL_CALL_ID,
 } from '../databricks-tool-calling';
 import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
+import { applyDatabricksReasoningStreamPartTransform } from '../databricks-reasoning-transformer';
 
 // OAuth token management
 let oauthToken: string | null = null;
@@ -318,6 +319,7 @@ const databricksMiddleware: LanguageModelV2Middleware = {
     const { stream, ...rest } = await doStream();
     let lastChunk = null as LanguageModelV2StreamPart | null;
     const transformerStreamParts = composeDatabricksStreamPartTransformers(
+      applyDatabricksReasoningStreamPartTransform,
       applyDatabricksTextPartTransform,
       applyDatabricksToolCallStreamPartTransform,
     );

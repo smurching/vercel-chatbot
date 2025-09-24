@@ -48,21 +48,28 @@ export type DatabricksToolStreamPart =
  */
 export const applyDatabricksToolCallStreamPartTransform: DatabricksStreamPartTransformer<
   DatabricksToolStreamPart | LanguageModelV2StreamPart
-> = (parts) => {
-  const out = parts.flatMap(
-    (part): (DatabricksToolStreamPart | LanguageModelV2StreamPart)[] => {
-      if (isToolCallStreamPart(part)) {
-        return transformToolCallStreamPart(part);
-      }
-      if (isToolCallOutputStreamPart(part)) {
-        return transformToolCallOutputStreamPart(part);
-      }
-      return [part];
-    },
-  );
+> = (parts, last) => {
+  const out: (DatabricksToolStreamPart | LanguageModelV2StreamPart)[] = [];
+  let currentLast = last;
+  for (const part of parts) {
+    const injections: (DatabricksToolStreamPart | LanguageModelV2StreamPart)[] =
+      [];
+    if (isToolCallStreamPart(part)) {
+      injections.push(...transformToolCallStreamPart(part));
+    }
+    if (isToolCallOutputStreamPart(part)) {
+      injections.push(...transformToolCallOutputStreamPart(part));
+    }
+    if (injections.length > 0) {
+      out.push(...injections);
+      currentLast = out[out.length - 1] ?? currentLast;
+    } else {
+      out.push(part);
+    }
+  }
   return {
     out,
-    last: parts[parts.length - 1],
+    last: currentLast,
   };
 };
 
