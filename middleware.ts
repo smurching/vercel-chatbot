@@ -1,6 +1,4 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { guestRegex, isDevelopmentEnvironment } from './lib/constants';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,39 +11,8 @@ export async function middleware(request: NextRequest) {
     return new Response('pong', { status: 200 });
   }
 
-  if (pathname.startsWith('/api/auth')) {
-    return NextResponse.next();
-  }
-
-  // Check for Databricks Apps headers first (X-Forwarded-User)
-  const forwardedUser = request.headers.get('X-Forwarded-User');
-  const shouldUseHeaderAuth = forwardedUser || (process.env.NODE_ENV === 'development' && !request.headers.get('cookie'));
-
-  if (shouldUseHeaderAuth) {
-    // Allow header-based auth to pass through - authentication will be handled by API routes
-    return NextResponse.next();
-  }
-
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
-  });
-
-  if (!token) {
-    const redirectUrl = encodeURIComponent(request.url);
-
-    return NextResponse.redirect(
-      new URL(`/api/auth/guest?redirectUrl=${redirectUrl}`, request.url),
-    );
-  }
-
-  const isGuest = guestRegex.test(token?.email ?? '');
-
-  if (token && !isGuest && ['/login', '/register'].includes(pathname)) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
+  // With Databricks-only auth, all authentication is handled per-route
+  // No need for middleware redirects or token checks
   return NextResponse.next();
 }
 
@@ -54,8 +21,6 @@ export const config = {
     '/',
     '/chat/:id',
     '/api/:path*',
-    '/login',
-    '/register',
 
     /*
      * Match all request paths except for the ones starting with:

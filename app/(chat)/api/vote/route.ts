@@ -1,5 +1,4 @@
-import { auth } from '@/app/(auth)/auth';
-import { authFromHeaders, shouldUseHeaderAuth } from '@/lib/auth-headers';
+import { getAuthSession } from '@/lib/databricks-auth';
 import { getChatById, getVotesByChatId, voteMessage } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
@@ -14,13 +13,7 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  let session;
-
-  if (shouldUseHeaderAuth(request)) {
-    session = await authFromHeaders(request);
-  } else {
-    session = await auth();
-  }
+  const session = await getAuthSession(request);
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:vote').toResponse();
@@ -56,13 +49,7 @@ export async function PATCH(request: Request) {
     ).toResponse();
   }
 
-  let session;
-
-  if (shouldUseHeaderAuth(request)) {
-    session = await authFromHeaders(request);
-  } else {
-    session = await auth();
-  }
+  const session = await getAuthSession(request);
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:vote').toResponse();

@@ -1,8 +1,7 @@
 import { cookies, headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
-import { auth } from '@/app/(auth)/auth';
-import { authFromNextHeaders, shouldUseHeaderAuthFromHeaders } from '@/lib/auth-headers';
+import { getAuthSessionFromHeaders } from '@/lib/databricks-auth';
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
@@ -19,18 +18,10 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   }
 
   const headersList = await headers();
-  let session;
-
-  if (shouldUseHeaderAuthFromHeaders(headersList)) {
-    // Use header-based auth for Databricks Apps or local dev
-    session = await authFromNextHeaders(headersList);
-  } else {
-    // Fall back to NextAuth for other environments
-    session = await auth();
-  }
+  const session = await getAuthSessionFromHeaders(headersList);
 
   if (!session) {
-    redirect('/api/auth/guest');
+    return notFound(); // No redirect to guest auth in Databricks-only mode
   }
 
   if (chat.visibility === 'private') {
