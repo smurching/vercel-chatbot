@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres';
 import { execSync } from 'child_process';
 
@@ -16,7 +15,7 @@ async function getDatabricksToken(): Promise<string> {
 
   if (!clientId || !clientSecret || !databricksHost) {
     throw new Error(
-        'DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST must be set for OAuth authentication',
+      'DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST must be set for OAuth authentication',
     );
   }
 
@@ -45,7 +44,6 @@ async function getDatabricksToken(): Promise<string> {
 
 // Get schema name from environment variable or default to username
 function getSchemaName(): string {
-  return "smurching";
   const envSchema = process.env.POSTGRES_SCHEMA;
   if (envSchema) {
     return envSchema;
@@ -108,23 +106,55 @@ const runMigrate = async () => {
       // Continue with migration even if schema creation had issues
     }
   }
-  // OLD logic starts here
-  //
-  // if (!process.env.POSTGRES_URL) {
-  //   throw new Error('POSTGRES_URL is not defined');
-  // }
 
-  const connection = postgres(process.env.POSTGRES_URL, { max: 1 });
+  // Get connection URL (handles both OAuth and traditional approaches)
+  const connectionUrl = await getConnectionUrl();
+  const connection = postgres(connectionUrl, { max: 1 });
   const db = drizzle(connection);
 
   console.log('⏳ Running migrations...');
 
   const start = Date.now();
 
-  await migrate(db, { migrationsFolder: './lib/db/migrations' });
-  const end = Date.now();
+  // For OAuth with custom schemas, use drizzle-kit push instead of migration files
+  // This ensures proper schema handling and table creation
+  if (schemaName !== 'public' && process.env.DATABRICKS_CLIENT_ID) {
+    try {
+      console.log('🔄 Using drizzle-kit push for custom schema...');
+      // Extract password from connection URL for drizzle-kit
+      const password = connectionUrl.includes('postgresql://') ?
+        decodeURIComponent(connectionUrl.split(':')[2].split('@')[0]) : '';
 
+      const { spawn } = require('child_process');
+      const child = spawn('npx', ['drizzle-kit', 'push'], {
+        env: { ...process.env, PGPASSWORD: password },
+        stdio: ['pipe', 'inherit', 'inherit']
+      });
+
+      // Auto-confirm with 'y'
+      child.stdin.write('y\n');
+      child.stdin.end();
+
+      await new Promise((resolve, reject) => {
+        child.on('close', (code) => {
+          if (code === 0) resolve(code);
+          else reject(new Error(`drizzle-kit push exited with code ${code}`));
+        });
+      });
+    } catch (error) {
+      console.error('❌ drizzle-kit push failed:', error.message);
+      console.log('🔄 Falling back to traditional migrations...');
+      await migrate(db, { migrationsFolder: './lib/db/migrations' });
+    }
+  } else {
+    // Use traditional migration files for public schema or non-OAuth setups
+    await migrate(db, { migrationsFolder: './lib/db/migrations' });
+  }
+
+  const end = Date.now();
   console.log('✅ Migrations completed in', end - start, 'ms');
+
+  await connection.end();
   process.exit(0);
 };
 

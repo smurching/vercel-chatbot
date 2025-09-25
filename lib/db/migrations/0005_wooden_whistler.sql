@@ -1,4 +1,4 @@
-SET SEARCH PATH TO smurching;
+-- SET SEARCH PATH TO smurching;
 
 CREATE TABLE IF NOT EXISTS "Message_v2" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
