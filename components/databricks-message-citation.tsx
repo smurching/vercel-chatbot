@@ -60,7 +60,7 @@ const DatabricksMessageCitationRenderer = (
           href={props.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md bg-muted-foreground px-2 py-0"
+          className="rounded-md bg-muted-foreground px-2 py-0 text-zinc-200"
         >
           {props.children}
         </components.a>
