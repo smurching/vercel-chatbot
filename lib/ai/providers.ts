@@ -297,7 +297,8 @@ if (isServer) {
 
 const servingEndpoint =
   process.env.DATABRICKS_SERVING_ENDPOINT || '';
-const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
+// const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
+const databricksChatEndpoint = 'databricks-claude-3-7-sonnet';
 
 const databricksMiddleware: LanguageModelV2Middleware = {
   transformParams: async ({ params }) => {

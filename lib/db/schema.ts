@@ -55,7 +55,7 @@ function createTable(tableName: string, columns: any) {
 export const user = createTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   email: varchar('email', { length: 64 }).notNull(),
-  password: varchar('password', { length: 64 }),
+  // Password removed - using Databricks SSO authentication
 });
 
 export type User = InferSelectModel<typeof user>;

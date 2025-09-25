@@ -30,7 +30,6 @@ import {
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
-import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
@@ -84,43 +83,9 @@ export async function getUser(email: string): Promise<Array<User>> {
   }
 }
 
-export async function createUser(email: string, password: string) {
-  const hashedPassword = generateHashedPassword(password);
+// createUser function removed - users are now created automatically via getOrCreateUserFromHeaders
 
-  try {
-    return await (await ensureDb()).insert(user).values({ email, password: hashedPassword });
-  } catch (error) {
-    throw new ChatSDKError('bad_request:database', 'Failed to create user');
-  }
-}
-
-export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
-
-  console.log('[createGuestUser] Creating guest user with email:', email);
-
-  try {
-    console.log('[createGuestUser] Ensuring DB connection...');
-    const database = await ensureDb();
-    console.log('[createGuestUser] DB connection established, inserting user...');
-
-    const result = await database.insert(user).values({ email, password }).returning({
-      id: user.id,
-      email: user.email,
-    });
-
-    console.log('[createGuestUser] Guest user created successfully:', result);
-    return result;
-  } catch (error) {
-    console.error('[createGuestUser] Error creating guest user:', error);
-    console.error('[createGuestUser] Error stack:', error instanceof Error ? error.stack : 'No stack available');
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to create guest user',
-    );
-  }
-}
+// createGuestUser function removed - no guest users in Databricks-only auth mode
 
 export async function getOrCreateUserFromHeaders(request: Request): Promise<User> {
   // Check for Databricks Apps headers first
@@ -158,11 +123,9 @@ export async function getOrCreateUserFromHeaders(request: Request): Promise<User
     const database = await ensureDb();
     const result = await database.insert(user).values({
       email: userEmail,
-      password: null // No password for header-based auth
     }).returning({
       id: user.id,
       email: user.email,
-      password: user.password,
     });
 
     if (result.length === 0) {
