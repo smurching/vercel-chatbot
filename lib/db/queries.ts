@@ -122,6 +122,64 @@ export async function createGuestUser() {
   }
 }
 
+export async function getOrCreateUserFromHeaders(request: Request): Promise<User> {
+  // Check for Databricks Apps headers first
+  const forwardedUser = request.headers.get('X-Forwarded-User');
+  const forwardedEmail = request.headers.get('X-Forwarded-Email');
+  const forwardedPreferredUsername = request.headers.get('X-Forwarded-Preferred-Username');
+
+  let userIdentifier: string;
+  let userEmail: string;
+
+  if (forwardedUser) {
+    // Databricks Apps environment - use forwarded headers
+    userIdentifier = forwardedUser;
+    userEmail = forwardedEmail || `${forwardedPreferredUsername}@databricks.com` || `${forwardedUser}@databricks.com`;
+    console.log(`[getOrCreateUserFromHeaders] Using Databricks Apps user: ${userIdentifier} (${userEmail})`);
+  } else {
+    // Local development - use system username
+    const systemUsername = process.env.USER || process.env.USERNAME || 'local-user';
+    userIdentifier = systemUsername;
+    userEmail = `${systemUsername}@localhost`;
+    console.log(`[getOrCreateUserFromHeaders] Using local development user: ${userIdentifier} (${userEmail})`);
+  }
+
+  try {
+    // Try to find existing user by email
+    const existingUsers = await getUser(userEmail);
+
+    if (existingUsers.length > 0) {
+      console.log(`[getOrCreateUserFromHeaders] Found existing user: ${userEmail}`);
+      return existingUsers[0];
+    }
+
+    // Create new user if doesn't exist
+    console.log(`[getOrCreateUserFromHeaders] Creating new user: ${userEmail}`);
+    const database = await ensureDb();
+    const result = await database.insert(user).values({
+      email: userEmail,
+      password: null // No password for header-based auth
+    }).returning({
+      id: user.id,
+      email: user.email,
+      password: user.password,
+    });
+
+    if (result.length === 0) {
+      throw new Error('Failed to create user - no result returned');
+    }
+
+    console.log(`[getOrCreateUserFromHeaders] Created new user successfully:`, result[0]);
+    return result[0];
+  } catch (error) {
+    console.error('[getOrCreateUserFromHeaders] Error:', error);
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get or create user from headers',
+    );
+  }
+}
+
 export async function saveChat({
   id,
   userId,

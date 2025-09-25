@@ -7,6 +7,7 @@ import {
   streamText,
 } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
+import { authFromHeaders, shouldUseHeaderAuth } from '@/lib/auth-headers';
 import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,
@@ -60,7 +61,15 @@ export async function POST(request: Request) {
       selectedVisibilityType: VisibilityType;
     } = requestBody;
 
-    const session = await auth();
+    let session;
+
+    if (shouldUseHeaderAuth(request)) {
+      // Use header-based auth for Databricks Apps or local dev
+      session = await authFromHeaders(request);
+    } else {
+      // Fall back to NextAuth for other environments
+      session = await auth();
+    }
 
     if (!session?.user) {
       return new ChatSDKError('unauthorized:chat').toResponse();
@@ -215,7 +224,15 @@ export async function DELETE(request: Request) {
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth();
+  let session;
+
+  if (shouldUseHeaderAuth(request)) {
+    // Use header-based auth for Databricks Apps or local dev
+    session = await authFromHeaders(request);
+  } else {
+    // Fall back to NextAuth for other environments
+    session = await auth();
+  }
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:chat').toResponse();

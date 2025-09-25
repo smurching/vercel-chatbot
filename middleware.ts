@@ -17,6 +17,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Check for Databricks Apps headers first (X-Forwarded-User)
+  const forwardedUser = request.headers.get('X-Forwarded-User');
+  const shouldUseHeaderAuth = forwardedUser || (process.env.NODE_ENV === 'development' && !request.headers.get('cookie'));
+
+  if (shouldUseHeaderAuth) {
+    // Allow header-based auth to pass through - authentication will be handled by API routes
+    return NextResponse.next();
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
