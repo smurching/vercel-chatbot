@@ -7,7 +7,7 @@ import {
   ShikiThemeContext,
   MermaidConfigContext,
   ControlsContext,
-} from 'streamdown/';
+} from 'streamdown';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
