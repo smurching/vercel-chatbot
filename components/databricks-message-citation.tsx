@@ -5,6 +5,7 @@ import type {
   PropsWithChildren,
 } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { components } from './elements/streamdown-components/components';
 
 /**
  * ReactMarkdown/Streamdown component that handles Databricks message citations.
@@ -24,7 +25,7 @@ export const DatabricksMessageCitationStreamdownIntegration: ComponentType<
       />
     );
   }
-  return <a {...props} />;
+  return <components.a {...props} />;
 };
 
 type SourcePart = Extract<ChatMessage['parts'][number], { type: 'source-url' }>;
@@ -56,14 +57,14 @@ const DatabricksMessageCitationRenderer = (
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <a
+        <components.a
           href={props.href}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-md bg-muted-foreground px-2 py-0"
         >
           {props.children}
-        </a>
+        </components.a>
       </TooltipTrigger>
       <TooltipContent
         style={{ maxWidth: '300px', padding: '8px', wordWrap: 'break-word' }}
