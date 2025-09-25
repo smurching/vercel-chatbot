@@ -45,7 +45,6 @@ async function getDatabricksToken(): Promise<string> {
 
 // Get schema name from environment variable or default to username
 function getSchemaName(): string {
-  return "smurching";
   const envSchema = process.env.POSTGRES_SCHEMA;
   if (envSchema) {
     return envSchema;
@@ -108,13 +107,10 @@ const runMigrate = async () => {
       // Continue with migration even if schema creation had issues
     }
   }
-  // OLD logic starts here
-  //
-  // if (!process.env.POSTGRES_URL) {
-  //   throw new Error('POSTGRES_URL is not defined');
-  // }
 
-  const connection = postgres(process.env.POSTGRES_URL, { max: 1 });
+  // Create OAuth-authenticated connection
+  const connectionUrl = await getConnectionUrl();
+  const connection = postgres(connectionUrl, { max: 1 });
   const db = drizzle(connection);
 
   console.log('⏳ Running migrations...');

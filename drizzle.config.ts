@@ -58,21 +58,21 @@ async function getDatabricksToken(): Promise<string> {
   return data.access_token;
 }
 
-// Function to get connection URL - for migrations we'll use the synchronous approach
-function getConnectionUrl(): string {
-
+// Function to get connection URL with OAuth token
+async function getConnectionUrl(): Promise<string> {
   // Build URL from individual components
-  // Note: For drizzle-kit migrations, you'll need to run a script that sets PGPASSWORD first
   const pgUser = process.env.PGUSER;
   const pgHost = process.env.PGHOST;
   const pgPort = process.env.PGPORT || '5432';
   const pgDatabase = process.env.PGDATABASE;
   const pgSSLMode = process.env.PGSSLMODE || 'require';
-  const pgPassword = process.env.PGPASSWORD; // This should be set by the migration script
 
-  if (!pgUser || !pgHost || !pgDatabase || !pgPassword) {
-    throw new Error('Required Postgres environment variables not set. For OAuth, run the migration script that sets PGPASSWORD with a fresh token.');
+  if (!pgUser || !pgHost || !pgDatabase) {
+    throw new Error('Required Postgres environment variables not set: PGUSER, PGHOST, PGDATABASE');
   }
+
+  // Get OAuth token as password
+  const pgPassword = await getDatabricksToken();
 
   const encodedUser = encodeURIComponent(pgUser);
   const encodedPassword = encodeURIComponent(pgPassword);
@@ -81,14 +81,32 @@ function getConnectionUrl(): string {
 
 const schemaName = getSchemaName();
 
+// Export async function to create config with OAuth token
+export async function createConfig() {
+  const url = await getConnectionUrl();
+  return defineConfig({
+    schema: './lib/db/schema.ts',
+    out: './lib/db/migrations',
+    dialect: 'postgresql',
+    dbCredentials: {
+      url,
+    },
+    schemaFilter: schemaName === 'public' ? ['public'] : [schemaName],
+    // Enable verbose mode for debugging
+    verbose: true,
+  });
+}
+
+// For compatibility with drizzle-kit CLI, we need to export a default config
+// This will be used by migrate.ts which handles the OAuth token generation
 export default defineConfig({
   schema: './lib/db/schema.ts',
   out: './lib/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: getConnectionUrl(),
+    // This will be overridden by migrate.ts with proper OAuth token
+    url: process.env.DATABASE_URL || 'postgresql://placeholder',
   },
   schemaFilter: schemaName === 'public' ? ['public'] : [schemaName],
-  // Enable verbose mode for debugging
   verbose: true,
 });
