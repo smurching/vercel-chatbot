@@ -1,3 +1,5 @@
+SET SEARCH PATH TO smurching;
+
 CREATE TABLE IF NOT EXISTS "Suggestion" (
 	"id" uuid DEFAULT gen_random_uuid() NOT NULL,
 	"documentId" uuid NOT NULL,
