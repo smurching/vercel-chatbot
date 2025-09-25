@@ -39,16 +39,17 @@ console.log(`[Schema] Using database schema: ${schemaName}`);
 const tablePrefix = schemaName === 'public' ? '' : `${schemaName}.`;
 
 // Create the schema object for custom schemas
-const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
+// const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
+const customSchema = pgSchema("smurching");
 
 // Helper function to create table with proper schema handling
 function createTable(tableName: string, columns: any) {
-  if (schemaName === 'public' || !customSchema) {
-    return pgTable(tableName, columns);
-  } else {
+  // if (schemaName === 'public' || !customSchema) {
+  //   return pgTable(tableName, columns);
+  // } else {
     // Use the schema object for proper drizzle-kit migration generation
     return customSchema.table(tableName, columns);
-  }
+  // }
 }
 
 export const user = createTable('User', {
