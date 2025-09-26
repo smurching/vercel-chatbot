@@ -17,6 +17,7 @@ import {
   DATABRICKS_TOOL_CALL_ID,
 } from '../databricks-tool-calling';
 import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
+import { applyDatabricksRawChunkStreamPartTransform } from '../databricks-raw-chunk-transformer';
 
 // OAuth token management
 let oauthToken: string | null = null;
@@ -220,7 +221,6 @@ const databricksFetch: typeof fetch = async (input, init) => {
   });
 };
 
-
 // Check auth method and set up provider accordingly
 let databricks: ReturnType<typeof createOpenAI>;
 let oauthProviderCache: ReturnType<typeof createOpenAI> | null = null;
@@ -228,9 +228,14 @@ let oauthProviderCacheTime = 0;
 const PROVIDER_CACHE_DURATION = 5 * 60 * 1000; // Cache provider for 5 minutes
 
 // Helper function to get or create the Databricks provider with OAuth
-async function getOrCreateDatabricksProvider(): Promise<ReturnType<typeof createOpenAI>> {
+async function getOrCreateDatabricksProvider(): Promise<
+  ReturnType<typeof createOpenAI>
+> {
   // Check if we have a cached provider that's still fresh
-  if (oauthProviderCache && Date.now() - oauthProviderCacheTime < PROVIDER_CACHE_DURATION) {
+  if (
+    oauthProviderCache &&
+    Date.now() - oauthProviderCacheTime < PROVIDER_CACHE_DURATION
+  ) {
     console.log('Using cached OAuth provider');
     return oauthProviderCache;
   }
@@ -269,8 +274,7 @@ if (typeof window !== 'undefined') {
     baseURL: `dummy-provider-frontend`,
     apiKey: 'dummy-key',
   });
-}
-else if (process.env.DATABRICKS_TOKEN) {
+} else if (process.env.DATABRICKS_TOKEN) {
   console.log('Using PAT authentication');
   // Use PAT directly
   databricks = createOpenAI({
@@ -288,7 +292,7 @@ else if (process.env.DATABRICKS_TOKEN) {
   databricks = {} as ReturnType<typeof createOpenAI>;
 } else {
   throw new Error(
-      'Please set either DATABRICKS_TOKEN for PAT auth or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET for OAuth',
+    'Please set either DATABRICKS_TOKEN for PAT auth or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET for OAuth',
   );
 }
 
@@ -298,7 +302,9 @@ const isServer = typeof window === 'undefined';
 
 if (isServer) {
   if (!process.env.DATABRICKS_SERVING_ENDPOINT) {
-    throw new Error('Please set the DATABRICKS_SERVING_ENDPOINT environment variable to the name of an agent serving endpoint');
+    throw new Error(
+      'Please set the DATABRICKS_SERVING_ENDPOINT environment variable to the name of an agent serving endpoint',
+    );
   }
 }
 
@@ -322,7 +328,11 @@ const databricksMiddleware: LanguageModelV2Middleware = {
     const { stream, ...rest } = await doStream();
     let lastChunk = null as LanguageModelV2StreamPart | null;
     const transformerStreamParts = composeDatabricksStreamPartTransformers(
+      // Filter out raw chunks except the ones we want to keep
+      applyDatabricksRawChunkStreamPartTransform,
+      // Add text-start and text-end chunks
       applyDatabricksTextPartTransform,
+      // Transform tool call stream parts
       applyDatabricksToolCallStreamPartTransform,
     );
 
@@ -335,7 +345,7 @@ const databricksMiddleware: LanguageModelV2Middleware = {
           console.log('databricksMiddleware incoming chunk', chunk);
 
           // Apply transformation functions to the incoming chunks
-          const { out, last } = transformerStreamParts([chunk], lastChunk);
+          const { out } = transformerStreamParts([chunk], lastChunk);
           console.log('databricksMiddleware outgoing chunks', out);
 
           // Enqueue the transformed chunks
@@ -344,7 +354,7 @@ const databricksMiddleware: LanguageModelV2Middleware = {
           });
 
           // Update the last chunk
-          lastChunk = last;
+          lastChunk = out[out.length - 1] ?? lastChunk;
         } catch (error) {
           console.error('Error in databricksMiddleware transform:', error);
           console.error(
@@ -471,7 +481,11 @@ class OAuthAwareProvider implements SmartProvider {
 // Create the appropriate provider based on authentication method
 let databricksProvider: SmartProvider;
 
-if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET && typeof window === 'undefined') {
+if (
+  process.env.DATABRICKS_CLIENT_ID &&
+  process.env.DATABRICKS_CLIENT_SECRET &&
+  typeof window === 'undefined'
+) {
   // OAuth path - use the smart provider
   databricksProvider = new OAuthAwareProvider();
 } else {

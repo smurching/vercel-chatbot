@@ -5,6 +5,7 @@ import type {
   PropsWithChildren,
 } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { components } from './elements/streamdown-components/components';
 
 /**
  * ReactMarkdown/Streamdown component that handles Databricks message citations.
@@ -15,7 +16,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 export const DatabricksMessageCitationStreamdownIntegration: ComponentType<
   AnchorHTMLAttributes<HTMLAnchorElement>
 > = (props) => {
-  console.log('DatabricksMessageCitationStreamdownIntegration', props);
   if (isDatabricksMessageCitationLink(props.href)) {
     return (
       <DatabricksMessageCitationRenderer
@@ -24,7 +24,7 @@ export const DatabricksMessageCitationStreamdownIntegration: ComponentType<
       />
     );
   }
-  return <a {...props} />;
+  return <components.a {...props} />;
 };
 
 type SourcePart = Extract<ChatMessage['parts'][number], { type: 'source-url' }>;
@@ -56,14 +56,14 @@ const DatabricksMessageCitationRenderer = (
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <a
+        <components.a
           href={props.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md bg-muted-foreground px-2 py-0"
+          className="rounded-md bg-muted-foreground px-2 py-0 text-zinc-200"
         >
           {props.children}
-        </a>
+        </components.a>
       </TooltipTrigger>
       <TooltipContent
         style={{ maxWidth: '300px', padding: '8px', wordWrap: 'break-word' }}
@@ -96,6 +96,9 @@ export const createMessagePartSegments = (parts: ChatMessage['parts']) => {
       part.type === 'source-url'
     ) {
       lastBlock.push(part);
+    } else if (lastBlock?.[0]?.type === 'text' && part.type === 'text') {
+      // We append sequential text parts to the same block
+      lastBlock.push(part);
     }
     // Otherwise, add the current part to a new block
     else {
@@ -116,6 +119,14 @@ export const joinMessagePartSegments = (parts: ChatMessage['parts']) => {
       case 'text':
         return acc + part.text;
       case 'source-url':
+        console.log("acc.endsWith('|')", acc.endsWith('|'));
+        // Special case for markdown tables
+        if (acc.endsWith('|')) {
+          // 1. Remove the last pipe
+          // 2. Insert the citation markdown
+          // 3. Add the pipe back
+          return `${acc.slice(0, -1)} ${createDatabricksMessageCitationMarkdown(part)}|`;
+        }
         return `${acc} ${createDatabricksMessageCitationMarkdown(part)}`;
       default:
         return acc;

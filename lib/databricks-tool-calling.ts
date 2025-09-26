@@ -60,10 +60,7 @@ export const applyDatabricksToolCallStreamPartTransform: DatabricksStreamPartTra
       return [part];
     },
   );
-  return {
-    out,
-    last: parts[parts.length - 1],
-  };
+  return { out };
 };
 
 const transformToolCallStreamPart = (

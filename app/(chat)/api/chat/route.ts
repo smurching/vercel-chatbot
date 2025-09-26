@@ -140,6 +140,7 @@ export async function POST(request: Request) {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });
           },
+          // We use raw chunks to pick the tool results out of the stream
           includeRawChunks: true,
           tools: {
             [DATABRICKS_TOOL_CALL_ID]: DATABRICKS_TOOL_DEFINITION,

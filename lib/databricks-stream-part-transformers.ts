@@ -7,7 +7,6 @@ export type DatabricksStreamPartTransformer<
   last: LanguageModelV2StreamPart | null,
 ) => {
   out: Out[];
-  last: LanguageModelV2StreamPart | null;
 };
 
 /* -----------------------------------------------------------------
@@ -46,29 +45,23 @@ export function composeDatabricksStreamPartTransformers<
   // transformer, so the returned function has the correct inferred type.
   return (
     initialParts: LanguageModelV2StreamPart[],
-    initialLast: LanguageModelV2StreamPart | null = null,
+    last: LanguageModelV2StreamPart | null = null,
   ) => {
     // ‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑-
     // Runtime state that moves through the pipeline
     // ‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑-
     let currentParts = initialParts;
-    let currentLast: LanguageModelV2StreamPart | null = initialLast;
 
     // Execute each transformer in order, threading the two values.
     for (const fn of transformers) {
-      const result = fn(
-        currentParts as LanguageModelV2StreamPart[],
-        currentLast,
-      );
+      const result = fn(currentParts as LanguageModelV2StreamPart[], last);
       currentParts = result.out;
-      currentLast = result.last;
     }
 
     // `OutElement<Last<T>>` is exactly the element type that the *last*
     // transformer emitted, so the cast is safe.
     return {
       out: currentParts as OutElement<Last<T>>[],
-      last: currentLast as OutElement<Last<T>> | null,
     };
   };
 }
