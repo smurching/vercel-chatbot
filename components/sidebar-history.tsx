@@ -3,7 +3,7 @@
 import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
 import { useParams, useRouter } from 'next/navigation';
 import type { AuthUser } from '@/lib/databricks-auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -27,7 +27,6 @@ import { fetcher } from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
 import useSWRInfinite from 'swr/infinite';
 import { LoaderIcon } from './icons';
-import { isDatabaseAvailable } from '@/lib/db/connection';
 
 type GroupedChats = {
   today: Chat[];
@@ -97,7 +96,23 @@ export function getChatHistoryPaginationKey(
 export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
   const { setOpenMobile } = useSidebar();
   const { id } = useParams();
-  const databaseAvailable = isDatabaseAvailable();
+  const [databaseAvailable, setDatabaseAvailable] = useState<boolean | null>(null);
+
+  // Fetch database availability from API
+  useEffect(() => {
+    const checkDatabaseStatus = async () => {
+      try {
+        const response = await fetch('/api/database-status');
+        const data = await response.json();
+        setDatabaseAvailable(data.available);
+      } catch (error) {
+        console.error('Failed to check database status:', error);
+        setDatabaseAvailable(false);
+      }
+    };
+
+    checkDatabaseStatus();
+  }, []);
 
   const {
     data: paginatedChatHistories,
@@ -155,7 +170,7 @@ export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
   };
 
   // Show database unavailable message when no database is configured
-  if (!databaseAvailable) {
+  if (databaseAvailable === false) {
     return (
       <SidebarGroup>
         <SidebarGroupContent>
