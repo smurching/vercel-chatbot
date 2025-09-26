@@ -13,9 +13,8 @@ import {
   pgSchema,
 } from 'drizzle-orm/pg-core';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
-import { getSchemaName } from './connection';
-
-const schemaName = getSchemaName();
+// Hard-coded schema name for consistency with drizzle-kit generate
+const schemaName = "ai_chatbot";
 console.log(`[Schema] Using database schema: ${schemaName}`);
 
 // For custom schemas, we'll handle the schema prefix in the table names directly

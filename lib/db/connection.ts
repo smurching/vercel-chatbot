@@ -53,19 +53,13 @@ export async function getDatabricksToken(): Promise<string> {
 }
 
 /**
- * Get the database schema name (with fallback to default)
+ * Get the database schema name to use
+ * Hardcoded to ai_chatbot for consistency with drizzle-kit generate
  */
 export function getSchemaName(): string {
-  // Allow override via environment variable for advanced users
-  const envSchema = process.env.POSTGRES_SCHEMA;
-  if (envSchema) {
-    console.log(`[getSchemaName] Using env schema: ${envSchema}`);
-    return envSchema;
-  }
-
-  // Default to fixed schema name for out-of-the-box functionality
-  console.log('[getSchemaName] Using default schema: ai_chatbot');
-  return 'ai_chatbot';
+  const schemaName = 'ai_chatbot';
+  console.log(`[getSchemaName] Using hardcoded schema: ${schemaName}`);
+  return schemaName;
 }
 
 /**
