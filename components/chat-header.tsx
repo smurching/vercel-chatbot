@@ -10,7 +10,7 @@ import { PlusIcon, VercelIcon } from './icons';
 import { useSidebar } from './ui/sidebar';
 import { memo } from 'react';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
-import type { Session } from 'next-auth';
+import type { AuthSession } from '@/lib/databricks-auth';
 
 function PureChatHeader({
   chatId,
@@ -21,7 +21,7 @@ function PureChatHeader({
   chatId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
-  session: Session;
+  session: AuthSession;
 }) {
   const router = useRouter();
   const { open } = useSidebar();

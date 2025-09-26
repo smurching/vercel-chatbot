@@ -1,6 +1,6 @@
 'use client';
 
-import type { User } from 'next-auth';
+import type { AuthUser } from '@/lib/databricks-auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -22,7 +22,7 @@ export function AppSidebar({
   user,
   preferredUsername
 }: {
-  user: User | undefined;
+  user: AuthUser | undefined;
   preferredUsername: string | null;
 }) {
   const router = useRouter();
