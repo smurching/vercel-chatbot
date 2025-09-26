@@ -25,9 +25,9 @@ async function main() {
   console.log(`🗃️ Using database schema: ${schemaName}`);
 
   // Create custom schema if needed
+  const connectionUrl = await getConnectionUrl();
   if (schemaName !== 'public') {
     try {
-      const connectionUrl = await getConnectionUrl();
       const schemaConnection = postgres(connectionUrl, { max: 1 });
 
       console.log(`📁 Creating schema '${schemaName}' if it doesn't exist...`);
