@@ -113,7 +113,7 @@ export async function getUser(email: string): Promise<Array<User>> {
 
 // createGuestUser function removed - no guest users in Databricks-only auth mode
 
-export async function getOrCreateUserFromHeaders(request: Request): Promise<User> {
+export async function getUserFromHeaders(request: Request): Promise<User> {
   // Check for Databricks Apps headers first
   const forwardedUser = request.headers.get('X-Forwarded-User');
   const forwardedEmail = request.headers.get('X-Forwarded-Email');
@@ -126,55 +126,23 @@ export async function getOrCreateUserFromHeaders(request: Request): Promise<User
     // Databricks Apps environment - use forwarded headers
     userIdentifier = forwardedUser;
     userEmail = forwardedEmail || `${forwardedPreferredUsername}@databricks.com` || `${forwardedUser}@databricks.com`;
-    console.log(`[getOrCreateUserFromHeaders] Using Databricks Apps user: ${userIdentifier} (${userEmail})`);
+    console.log(`[getUserFromHeaders] Using Databricks Apps user: ${userIdentifier} (${userEmail})`);
   } else {
     // Local development - use system username
     const systemUsername = process.env.USER || process.env.USERNAME || 'local-user';
     userIdentifier = systemUsername;
     userEmail = `${systemUsername}@localhost`;
-    console.log(`[getOrCreateUserFromHeaders] Using local development user: ${userIdentifier} (${userEmail})`);
+    console.log(`[getUserFromHeaders] Using local development user: ${userIdentifier} (${userEmail})`);
   }
 
-  try {
-    // Try to find existing user by email
-    const existingUsers = await getUser(userEmail);
+  // Return user object with Databricks user ID - no database operations needed
+  const user: User = {
+    id: userIdentifier, // Use Databricks user ID directly
+    email: userEmail,
+  };
 
-    if (existingUsers.length > 0) {
-      console.log(`[getOrCreateUserFromHeaders] Found existing user: ${userEmail}`);
-      return existingUsers[0];
-    }
-
-    // Create new user if doesn't exist
-    console.log(`[getOrCreateUserFromHeaders] Creating new user: ${userEmail}`);
-
-    if (!isDatabaseAvailable()) {
-      // Use in-memory storage
-      const newUser = createInMemoryUser(generateUUID(), userEmail);
-      console.log(`[getOrCreateUserFromHeaders] Created in-memory user: ${userEmail}`);
-      return newUser;
-    }
-
-    const database = await ensureDb();
-    const result = await database.insert(user).values({
-      email: userEmail,
-    }).returning({
-      id: user.id,
-      email: user.email,
-    });
-
-    if (result.length === 0) {
-      throw new Error('Failed to create user - no result returned');
-    }
-
-    console.log(`[getOrCreateUserFromHeaders] Created new user successfully:`, result[0]);
-    return result[0];
-  } catch (error) {
-    console.error('[getOrCreateUserFromHeaders] Error:', error);
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to get or create user from headers',
-    );
-  }
+  console.log(`[getUserFromHeaders] Returning user from headers:`, user);
+  return user;
 }
 
 export async function saveChat({

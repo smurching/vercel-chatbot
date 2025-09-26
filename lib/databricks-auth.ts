@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getOrCreateUserFromHeaders, type User } from '@/lib/db/queries';
+import { getUserFromHeaders, type User } from '@/lib/db/queries';
 
 export type UserType = 'regular'; // Simplified - no more guest users
 
@@ -114,7 +114,7 @@ export async function getAuthSession(request?: Request): Promise<AuthSession | n
       const forwardedPreferredUsername = request.headers.get('X-Forwarded-Preferred-Username');
 
       // Get or create user in database
-      const user = await getOrCreateUserFromHeaders(request);
+      const user = await getUserFromHeaders(request);
 
       return {
         user: {
@@ -153,7 +153,7 @@ export async function getAuthSession(request?: Request): Promise<AuthSession | n
     } as Request;
 
     // Get or create user in database
-    const user = await getOrCreateUserFromHeaders(mockRequest);
+    const user = await getUserFromHeaders(mockRequest);
 
     return {
       user: {

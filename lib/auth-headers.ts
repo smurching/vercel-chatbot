@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getOrCreateUserFromHeaders, type User } from '@/lib/db/queries';
+import { getUserFromHeaders, type User } from '@/lib/db/queries';
 
 export type UserType = 'guest' | 'regular';
 
@@ -20,7 +20,7 @@ export interface AuthSession {
  */
 export async function authFromHeaders(request: Request): Promise<AuthSession | null> {
   try {
-    const user: User = await getOrCreateUserFromHeaders(request);
+    const user: User = await getUserFromHeaders(request);
 
     return {
       user: {
@@ -64,7 +64,7 @@ export async function authFromNextHeaders(headersList: Headers): Promise<AuthSes
       }
     } as Request;
 
-    const user = await getOrCreateUserFromHeaders(mockRequest);
+    const user = await getUserFromHeaders(mockRequest);
 
     return {
       user: {
