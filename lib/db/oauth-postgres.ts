@@ -1,76 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { autoMigrate } from './auto-migrate';
+import { getConnectionUrl, getSchemaName } from './connection';
 
-// OAuth token management for Postgres
-let oauthToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getDatabricksPostgresToken(): Promise<string> {
-  // Check if we have a valid cached token
-  if (oauthToken && Date.now() < tokenExpiresAt) {
-    return oauthToken;
-  }
-
-  const clientId = process.env.DATABRICKS_CLIENT_ID;
-  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const databricksHost = process.env.DATABRICKS_HOST;
-
-  if (!clientId || !clientSecret || !databricksHost) {
-    throw new Error(
-      'DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST must be set for OAuth authentication',
-    );
-  }
-
-  // Mint a new OAuth token
-  const tokenUrl = `https://${databricksHost}/oidc/v1/token`;
-
-  console.log('Minting new Databricks OAuth token for Postgres...');
-
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials&scope=all-apis',
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Failed to get OAuth token: ${response.status} ${errorText}`,
-    );
-  }
-
-  const data = await response.json();
-  oauthToken = data.access_token;
-  // Set expiration with a 5-minute buffer
-  tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
-
-  console.log(`OAuth token obtained for Postgres, expires in ${data.expires_in} seconds`);
-  return oauthToken;
-}
-
-// Create a function to build the connection URL with fresh token
-async function getPostgresConnectionUrl(): Promise<string> {
-  const token = await getDatabricksPostgresToken();
-
-  const pgUser = process.env.PGUSER;
-  const pgHost = process.env.PGHOST;
-  const pgPort = process.env.PGPORT || '5432';
-  const pgDatabase = process.env.PGDATABASE;
-  const pgSSLMode = process.env.PGSSLMODE || 'require';
-
-  if (!pgUser || !pgHost || !pgDatabase) {
-    throw new Error('PGUSER, PGHOST, and PGDATABASE must be set');
-  }
-
-  // URL encode the username (email)
-  const encodedUser = encodeURIComponent(pgUser);
-
-  return `postgresql://${encodedUser}:${token}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=${pgSSLMode}`;
-}
 
 // Connection pool management
 let sqlConnection: postgres.Sql | null = null;
@@ -86,7 +19,7 @@ async function getConnection(): Promise<postgres.Sql> {
       sqlConnection = null;
     }
 
-    const connectionUrl = await getPostgresConnectionUrl();
+    const connectionUrl = await getConnectionUrl();
     sqlConnection = postgres(connectionUrl, {
       max: 10, // connection pool size
       idle_timeout: 20,
@@ -101,22 +34,6 @@ async function getConnection(): Promise<postgres.Sql> {
   return sqlConnection;
 }
 
-// Get schema name from environment variable or default to username
-function getSchemaName(): string {
-  const envSchema = process.env.POSTGRES_SCHEMA;
-  if (envSchema) {
-    return envSchema;
-  }
-
-  // Default to postgres username if available
-  const pgUser = process.env.PGUSER;
-  if (pgUser) {
-    // Remove the @domain part if it's an email
-    return pgUser.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-  }
-
-  return 'public';
-}
 
 // Export a function to get the Drizzle instance with fresh connection
 export async function getDb() {
@@ -138,8 +55,13 @@ export async function getDb() {
     }
   }
 
-  // Note: Automatic migrations are disabled due to drizzle-kit issues with custom schemas
-  // Run `node scripts/run-migration-oauth.js` manually to set up tables
+  // Run automatic migrations on first connection
+  try {
+    await autoMigrate();
+  } catch (error) {
+    console.error('[OAuth Postgres] Auto-migration failed:', error);
+    // Continue anyway - tables might already exist
+  }
 
   return drizzle(sql, { schema });
 }

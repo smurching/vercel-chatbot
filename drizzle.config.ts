@@ -5,21 +5,16 @@ config({
   path: '.env.local',
 });
 
-// Get schema name from environment variable or default to username
+// Use fixed schema name for out-of-the-box functionality
 function getSchemaName(): string {
+  // Allow override via environment variable for advanced users
   const envSchema = process.env.POSTGRES_SCHEMA;
   if (envSchema) {
     return envSchema;
   }
 
-  // Default to postgres username if available
-  const pgUser = process.env.PGUSER;
-  if (pgUser) {
-    // Remove the @domain part if it's an email
-    return pgUser.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-  }
-
-  return 'public';
+  // Default to fixed schema name for out-of-the-box functionality
+  return 'ai_chatbot';
 }
 
 

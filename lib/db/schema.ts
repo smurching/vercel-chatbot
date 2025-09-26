@@ -13,23 +13,7 @@ import {
   pgSchema,
 } from 'drizzle-orm/pg-core';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
-
-// Get custom schema name from environment variable or default to username
-function getSchemaName(): string {
-  const envSchema = process.env.POSTGRES_SCHEMA;
-  if (envSchema) {
-    return envSchema;
-  }
-
-  // Default to postgres username if available
-  const pgUser = process.env.PGUSER;
-  if (pgUser) {
-    // Remove the @domain part if it's an email
-    return pgUser.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-  }
-
-  return 'public';
-}
+import { getSchemaName } from './connection';
 
 const schemaName = getSchemaName();
 console.log(`[Schema] Using database schema: ${schemaName}`);
@@ -40,7 +24,7 @@ const tablePrefix = schemaName === 'public' ? '' : `${schemaName}.`;
 
 // Create the schema object for custom schemas
 // const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
-const customSchema = pgSchema("smurching");
+const customSchema = pgSchema("ai_chatbot");
 
 // Helper function to create table with proper schema handling
 function createTable(tableName: string, columns: any) {

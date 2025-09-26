@@ -1,12 +1,12 @@
 {
-  "id": "f1e7fb8f-d48a-4c89-957d-5297d28800a1",
+  "id": "9b6a24b8-806c-432c-a8bf-fb83fe17b9bc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "smurching.Chat": {
+    "ai_chatbot.Chat": {
       "name": "Chat",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -53,7 +53,7 @@
           "name": "Chat_userId_User_id_fk",
           "tableFrom": "Chat",
           "tableTo": "User",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "userId"
           ],
@@ -67,9 +67,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Document": {
+    "ai_chatbot.Document": {
       "name": "Document",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -116,7 +116,7 @@
           "name": "Document_userId_User_id_fk",
           "tableFrom": "Document",
           "tableTo": "User",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "userId"
           ],
@@ -130,9 +130,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Message_v2": {
+    "ai_chatbot.Message_v2": {
       "name": "Message_v2",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -178,7 +178,7 @@
           "name": "Message_v2_chatId_Chat_id_fk",
           "tableFrom": "Message_v2",
           "tableTo": "Chat",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "chatId"
           ],
@@ -192,9 +192,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Message": {
+    "ai_chatbot.Message": {
       "name": "Message",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -234,7 +234,7 @@
           "name": "Message_chatId_Chat_id_fk",
           "tableFrom": "Message",
           "tableTo": "Chat",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "chatId"
           ],
@@ -248,9 +248,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Stream": {
+    "ai_chatbot.Stream": {
       "name": "Stream",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -277,9 +277,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Suggestion": {
+    "ai_chatbot.Suggestion": {
       "name": "Suggestion",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -344,7 +344,7 @@
           "name": "Suggestion_userId_User_id_fk",
           "tableFrom": "Suggestion",
           "tableTo": "User",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "userId"
           ],
@@ -358,9 +358,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.User": {
+    "ai_chatbot.User": {
       "name": "User",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "id": {
           "name": "id",
@@ -381,9 +381,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Vote_v2": {
+    "ai_chatbot.Vote_v2": {
       "name": "Vote_v2",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "chatId": {
           "name": "chatId",
@@ -410,7 +410,7 @@
           "name": "Vote_v2_chatId_Chat_id_fk",
           "tableFrom": "Vote_v2",
           "tableTo": "Chat",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "chatId"
           ],
@@ -424,7 +424,7 @@
           "name": "Vote_v2_messageId_Message_v2_id_fk",
           "tableFrom": "Vote_v2",
           "tableTo": "Message_v2",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "messageId"
           ],
@@ -438,9 +438,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "smurching.Vote": {
+    "ai_chatbot.Vote": {
       "name": "Vote",
-      "schema": "smurching",
+      "schema": "ai_chatbot",
       "columns": {
         "chatId": {
           "name": "chatId",
@@ -467,7 +467,7 @@
           "name": "Vote_chatId_Chat_id_fk",
           "tableFrom": "Vote",
           "tableTo": "Chat",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "chatId"
           ],
@@ -481,7 +481,7 @@
           "name": "Vote_messageId_Message_id_fk",
           "tableFrom": "Vote",
           "tableTo": "Message",
-          "schemaTo": "smurching",
+          "schemaTo": "ai_chatbot",
           "columnsFrom": [
             "messageId"
           ],

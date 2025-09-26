@@ -29,10 +29,11 @@
   - Styling with [Tailwind CSS](https://tailwindcss.com)
   - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
 - Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+  - [PostgreSQL](https://www.postgresql.org/) for saving chat history and user data
+  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage (optional)
+- [Databricks Authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html)
+  - OAuth-based authentication with your Databricks workspace
+  - No password management required
 
 ## Model Providers
 
@@ -54,17 +55,64 @@ You can deploy your own version of the Next.js AI Chatbot to Vercel with one cli
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+### Quick Start (3 steps)
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
+1. **Clone and install**:
+   ```bash
+   git clone https://github.com/your-repo/databricks-chatbot
+   cd databricks-chatbot
+   npm install
+   ```
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+2. **Set up environment variables**:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-```bash
-pnpm install
-pnpm dev
-```
+   Edit `.env.local` and set these **required** variables:
+   ```env
+   # Databricks workspace
+   DATABRICKS_HOST=your-workspace.cloud.databricks.com
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+   # Databricks authentication (choose one option)
+   # Option 1: OAuth credentials (recommended)
+   DATABRICKS_CLIENT_ID=your-oauth-client-id
+   DATABRICKS_CLIENT_SECRET=your-oauth-client-secret
+
+   # Option 2: Personal Access Token (alternative)
+   # DATABRICKS_TOKEN=your-personal-access-token
+
+   # PostgreSQL database (choose one option)
+   # Option 1: Individual variables (recommended for OAuth)
+   PGHOST=your-postgres-host
+   PGDATABASE=your-database-name
+   PGUSER=your-username
+   PGPORT=5432
+
+   # Option 2: Connection string (alternative)
+   # POSTGRES_URL=postgresql://username:password@host:port/database
+   ```
+
+3. **Run the application**:
+   ```bash
+   npm run dev
+   ```
+
+The app will automatically:
+- Create the database schema (`ai_chatbot`)
+- Run all necessary migrations
+- Start on [localhost:8000](http://localhost:8000)
+
+### Prerequisites
+
+- **Databricks workspace** with OAuth app configured ([setup guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html))
+- **PostgreSQL database** (local, cloud, or managed service)
+
+### Optional Features
+
+Add these environment variables for additional features:
+- `AI_GATEWAY_API_KEY`: For non-Vercel deployments
+- `BLOB_READ_WRITE_TOKEN`: For file upload capabilities
+- `REDIS_URL`: For resumable streaming
+
+> **Note**: PGPASSWORD is not needed - it's automatically managed via OAuth token exchange.
