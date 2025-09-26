@@ -36,7 +36,7 @@ function createTable(tableName: string, columns: any) {
 }
 
 export const user = createTable('User', {
-  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  id: text('id').primaryKey().notNull(),
   email: varchar('email', { length: 64 }).notNull(),
   // Password removed - using Databricks SSO authentication
 });
@@ -47,9 +47,7 @@ export const chat = createTable('Chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   createdAt: timestamp('createdAt').notNull(),
   title: text('title').notNull(),
-  userId: uuid('userId')
-    .notNull()
-    .references(() => user.id),
+  userId: text('userId').notNull(),
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
@@ -137,9 +135,7 @@ export const document = createTable(
     kind: varchar('text', { enum: ['text', 'code', 'image', 'sheet'] })
       .notNull()
       .default('text'),
-    userId: uuid('userId')
-      .notNull()
-      .references(() => user.id),
+    userId: text('userId').notNull(),
   },
   (table) => {
     return {
@@ -160,9 +156,7 @@ export const suggestion = createTable(
     suggestedText: text('suggestedText').notNull(),
     description: text('description'),
     isResolved: boolean('isResolved').notNull().default(false),
-    userId: uuid('userId')
-      .notNull()
-      .references(() => user.id),
+    userId: text('userId').notNull(),
     createdAt: timestamp('createdAt').notNull(),
   },
   (table) => ({
