@@ -38,93 +38,24 @@ async function getConnection(): Promise<postgres.Sql> {
 export async function getDb() {
   const sql = await getConnection();
 
-  // Create schema if it doesn't exist and it's not 'public'
+  // Set the search_path to include our custom schema
   const schemaName = getSchemaName();
   if (schemaName !== 'public') {
     try {
-      await sql`CREATE SCHEMA IF NOT EXISTS ${sql(schemaName)}`;
-      console.log(`[OAuth Postgres] Ensured schema '${schemaName}' exists`);
-
-      // Set the search_path to include our custom schema
       await sql`SET search_path TO ${sql(schemaName)}, public`;
       console.log(`[OAuth Postgres] Set search_path to include schema '${schemaName}'`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[OAuth Postgres] Failed to create schema or set search_path for '${schemaName}':`, errorMessage);
-      // Don't throw - maybe it already exists or we don't have permissions
+      console.error(`[OAuth Postgres] Failed to set search_path for '${schemaName}':`, errorMessage);
+      // Don't throw - continue anyway
     }
   }
 
   return drizzle(sql, { schema });
 }
 
-// Function to ensure all required tables exist
-async function ensureTablesExist(sql: postgres.Sql, schemaName: string): Promise<boolean> {
-  try {
-    // Check if the main tables exist
-    const result = await sql`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = ${schemaName}
-      AND table_name IN ('User', 'Chat', 'Message_v2', 'Document', 'Suggestion', 'Stream', 'Vote_v2')
-    `;
-
-    // If we have fewer than 7 required tables, run migrations
-    if (result.length < 7) {
-      console.log(`[OAuth Postgres] Found ${result.length}/7 required tables in schema '${schemaName}'. Running migrations...`);
-      await runMigrations();
-      return true;
-    } else {
-      console.log(`[OAuth Postgres] All required tables exist in schema '${schemaName}'`);
-      return false;
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[OAuth Postgres] Error checking tables, attempting to run migrations:`, errorMessage);
-    await runMigrations();
-    return true;
-  }
-}
-
-// Function to run migrations programmatically
-async function runMigrations() {
-  try {
-    console.log(`[OAuth Postgres] Running database migrations using our migration script...`);
-
-    // Import and run our migrate.ts script directly using tsx
-    const { spawn } = await import('child_process');
-    const { join } = await import('path');
-
-    const projectRoot = join(__dirname, '..', '..');
-    const tsxBin = join(projectRoot, 'node_modules', '.bin', 'tsx');
-    const migrateScript = join(__dirname, 'migrate.ts');
-
-    await new Promise((resolve, reject) => {
-      const child = spawn(tsxBin, [migrateScript], {
-        stdio: 'inherit',
-        env: process.env
-      });
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve(code);
-        } else {
-          reject(new Error(`Migration script exited with code ${code}`));
-        }
-      });
-
-      child.on('error', (error) => {
-        reject(error);
-      });
-    });
-
-    console.log(`[OAuth Postgres] Migrations completed successfully`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[OAuth Postgres] Migration failed:`, errorMessage);
-    // Don't throw - let the app continue and fail on actual DB operations if needed
-  }
-}
+// Note: Runtime migrations have been removed.
+// Migrations now run at build time via `npm run build` which calls `tsx lib/db/migrate.ts`
 
 // For migration purposes, export a function to get the connection URL
 export async function getConnectionUrlForMigration(): Promise<string> {
