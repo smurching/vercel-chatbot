@@ -19,9 +19,7 @@ import {
 import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
 import { applyDatabricksRawChunkStreamPartTransform } from '../databricks-raw-chunk-transformer';
 
-// OAuth token management
-let oauthToken: string | null = null;
-let tokenExpiresAt = 0;
+// Use centralized authentication
 
 async function getDatabricksToken(): Promise<string | null> {
   // First, check if we have a PAT token
@@ -30,50 +28,14 @@ async function getDatabricksToken(): Promise<string | null> {
     return process.env.DATABRICKS_TOKEN;
   }
 
-  // Otherwise, use OAuth client credentials
-  console.log('Using OAuth client credentials for authentication');
-  const clientId = process.env.DATABRICKS_CLIENT_ID;
-  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      'Either DATABRICKS_TOKEN or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET must be set',
-    );
+  // Otherwise, use centralized authentication module
+  const { getDatabricksToken: getSharedToken } = await import('@/lib/auth/databricks-auth');
+  try {
+    return await getSharedToken();
+  } catch (error) {
+    console.error('Failed to get Databricks token:', error);
+    return null;
   }
-
-  // Check if we have a valid cached token
-  if (oauthToken && Date.now() < tokenExpiresAt) {
-    return oauthToken;
-  }
-
-  // Mint a new OAuth token
-  const tokenUrl = `${workspaceHostname}/oidc/v1/token`;
-
-  console.log('Minting new Databricks OAuth token...');
-
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials&scope=all-apis',
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Failed to get OAuth token: ${response.status} ${errorText}`,
-    );
-  }
-
-  const data = await response.json();
-  oauthToken = data.access_token;
-  // Set expiration with a 5-minute buffer
-  tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
-
-  console.log(`OAuth token obtained, expires in ${data.expires_in} seconds`);
-  return oauthToken;
 }
 
 const workspaceHostname = (() => {
@@ -274,26 +236,28 @@ if (typeof window !== 'undefined') {
     baseURL: `dummy-provider-frontend`,
     apiKey: 'dummy-key',
   });
-} else if (process.env.DATABRICKS_TOKEN) {
-  console.log('Using PAT authentication');
-  // Use PAT directly
-  databricks = createOpenAI({
-    baseURL: `${workspaceHostname}/serving-endpoints`,
-    apiKey: process.env.DATABRICKS_TOKEN,
-    fetch: databricksFetch,
-  });
-} else if (
-  process.env.DATABRICKS_CLIENT_ID &&
-  process.env.DATABRICKS_CLIENT_SECRET
-) {
-  console.log('Using OAuth authentication');
-
-  // Create placeholder that will be replaced by actual provider on first use
-  databricks = {} as ReturnType<typeof createOpenAI>;
 } else {
-  throw new Error(
-    'Please set either DATABRICKS_TOKEN for PAT auth or both DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET for OAuth',
-  );
+  // Use centralized authentication module
+  const { getAuthMethod, getAuthMethodDescription, isAuthAvailable } = await import('@/lib/auth/databricks-auth');
+
+  if (process.env.DATABRICKS_TOKEN) {
+    console.log('Using PAT authentication');
+    // Use PAT directly
+    databricks = createOpenAI({
+      baseURL: `${workspaceHostname}/serving-endpoints`,
+      apiKey: process.env.DATABRICKS_TOKEN,
+      fetch: databricksFetch,
+    });
+  } else if (isAuthAvailable()) {
+    console.log(`Using ${getAuthMethodDescription()} authentication`);
+
+    // Create placeholder that will be replaced by actual provider on first use
+    databricks = {} as ReturnType<typeof createOpenAI>;
+  } else {
+    throw new Error(
+      'Please set one of: DATABRICKS_TOKEN (PAT), DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET (OAuth), or DATABRICKS_CONFIG_PROFILE/DATABRICKS_HOST (CLI auth)',
+    );
+  }
 }
 
 // Use the Databricks serving endpoint from environment variable or fallback to default

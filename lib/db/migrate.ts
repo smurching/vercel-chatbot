@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
-import { isDatabaseAvailable, getDatabricksToken, getSchemaName, getConnectionUrl } from './connection';
+import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection';
+import { getDatabricksToken } from '@/lib/auth/databricks-auth';
 import { spawn } from 'child_process';
 import postgres from 'postgres';
 import { join } from 'path';

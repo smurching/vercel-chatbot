@@ -44,16 +44,17 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
 
    Choose one of two authentication methods:
 
-   **Option A: Service Principal OAuth (Recommended for production)**
+   **Option A: CLI OAuth U2M (Recommended for individual users)**
+
+   - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
+   - Run `databricks auth login` to authenticate with your workspace
+   - This uses OAuth user-to-machine (U2M) authentication
+   - See [Databricks OAuth U2M guide](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html) for detailed steps
+
+   **Option B: Service Principal OAuth (Recommended for production)**
 
    - [Create a service principal](https://docs.databricks.com/aws/en/admin/users-groups/manage-service-principals?language=Workspace%C2%A0admin%C2%A0settings#-add-service-principals-to-your-account) in your Databricks workspace
-   - See [Databricks OAuth guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html) for detailed steps
-
-   **Option B: Personal Access Token**
-
-   - Generate a personal access token in your Databricks workspace
-   - Go to Settings → Developer → Access tokens → Generate new token
-   - See [Databricks PAT guide](https://docs.databricks.com/en/dev-tools/auth/pat.html) for detailed steps
+   - See [Databricks OAuth M2M guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html) for detailed steps
 
 
 3. **Set up environment variables**:
@@ -63,11 +64,13 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
 
    Edit `.env.local` with your credentials:
 
-   **For Personal Access Token authentication:**
+   **For CLI OAuth U2M authentication:**
    ```env
-   # Required: Databricks workspace and PAT
-   DATABRICKS_HOST=your-workspace.cloud.databricks.com
-   DATABRICKS_TOKEN=your-personal-access-token
+   # Optional: Databricks profile (uses default profile if not set)
+   DATABRICKS_CONFIG_PROFILE=your-profile-name
+
+   # Or alternatively, specify host directly:
+   # DATABRICKS_HOST=your-workspace.cloud.databricks.com
 
    # Required: PostgreSQL database
    PGHOST=your-postgres-host

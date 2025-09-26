@@ -34,7 +34,8 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 import { getDb } from './oauth-postgres';
-import { isDatabaseAvailable, shouldUseOAuth, shouldUsePATCredentials } from './connection';
+import { isDatabaseAvailable } from './connection';
+import { getAuthMethod, getAuthMethodDescription } from '@/lib/auth/databricks-auth';
 
 // Re-export User type for external use
 export type { User } from './schema';
@@ -50,12 +51,10 @@ if (!isDatabaseAvailable()) {
   throw new Error('Database configuration required. Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
 }
 
-if (shouldUseOAuth()) {
-  // OAuth path - db will be initialized asynchronously
-  console.log('Using OAuth (service principal) authentication for Postgres connection');
-} else if (shouldUsePATCredentials()) {
-  // PAT-based database credentials path - db will be initialized asynchronously
-  console.log('Using PAT-based database credentials authentication for Postgres connection');
+const authMethod = getAuthMethod();
+if (authMethod === 'oauth' || authMethod === 'cli') {
+  // Dynamic auth path - db will be initialized asynchronously
+  console.log(`Using ${getAuthMethodDescription()} authentication for Postgres connection`);
 } else if (process.env.POSTGRES_URL) {
   // Traditional connection string
   const client = postgres(process.env.POSTGRES_URL);
@@ -64,18 +63,19 @@ if (shouldUseOAuth()) {
 
 // Helper to ensure db is initialized for dynamic auth connections
 async function ensureDb() {
-  // Always get a fresh DB instance for OAuth or PAT-based connections to handle token expiry
-  if (shouldUseOAuth() || shouldUsePATCredentials()) {
-    const authMethod = shouldUseOAuth() ? 'OAuth' : 'PAT-based database credentials';
-    console.log(`[ensureDb] Getting ${authMethod} database connection...`);
+  // Always get a fresh DB instance for dynamic auth connections to handle token expiry
+  const authMethod = getAuthMethod();
+  if (authMethod === 'oauth' || authMethod === 'cli') {
+    const authDescription = getAuthMethodDescription();
+    console.log(`[ensureDb] Getting ${authDescription} database connection...`);
     try {
       // Import getDbWithRetry for better error handling
       const { getDbWithRetry } = await import('./oauth-postgres');
       const database = await getDbWithRetry();
-      console.log(`[ensureDb] ${authMethod} db connection obtained successfully`);
+      console.log(`[ensureDb] ${authDescription} db connection obtained successfully`);
       return database;
     } catch (error) {
-      console.error(`[ensureDb] Failed to get ${authMethod} connection:`, error);
+      console.error(`[ensureDb] Failed to get ${authDescription} connection:`, error);
       throw error;
     }
   }
