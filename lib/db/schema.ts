@@ -19,20 +19,16 @@ console.log(`[Schema] Using database schema: ${schemaName}`);
 
 // For custom schemas, we'll handle the schema prefix in the table names directly
 // This avoids Drizzle's complex schema handling that can cause quoting issues
-const tablePrefix = schemaName === 'public' ? '' : `${schemaName}.`;
+// Note: hardcoded schema name "ai_chatbot" will never equal "public"
 
 // Create the schema object for custom schemas
 // const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
 const customSchema = pgSchema(schemaName);
 
 // Helper function to create table with proper schema handling
-function createTable(tableName: string, columns: any) {
-  // if (schemaName === 'public' || !customSchema) {
-  //   return pgTable(tableName, columns);
-  // } else {
-    // Use the schema object for proper drizzle-kit migration generation
-    return customSchema.table(tableName, columns);
-  // }
+function createTable<T>(tableName: string, columns: T, extraConfig?: (table: T) => any) {
+  // Use the schema object for proper drizzle-kit migration generation
+  return customSchema.table(tableName, columns, extraConfig);
 }
 
 export const user = createTable('User', {

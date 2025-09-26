@@ -35,6 +35,9 @@ import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 import { getDb } from './oauth-postgres';
 import { isDatabaseAvailable } from './connection';
+
+// Re-export User type for external use
+export type { User } from './schema';
 import {
   getInMemoryUser,
   setInMemoryUser,

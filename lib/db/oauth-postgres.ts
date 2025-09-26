@@ -49,7 +49,8 @@ export async function getDb() {
       await sql`SET search_path TO ${sql(schemaName)}, public`;
       console.log(`[OAuth Postgres] Set search_path to include schema '${schemaName}'`);
     } catch (error) {
-      console.error(`[OAuth Postgres] Failed to create schema or set search_path for '${schemaName}':`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[OAuth Postgres] Failed to create schema or set search_path for '${schemaName}':`, errorMessage);
       // Don't throw - maybe it already exists or we don't have permissions
     }
   }
@@ -78,7 +79,8 @@ async function ensureTablesExist(sql: postgres.Sql, schemaName: string): Promise
       return false;
     }
   } catch (error) {
-    console.error(`[OAuth Postgres] Error checking tables, attempting to run migrations:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[OAuth Postgres] Error checking tables, attempting to run migrations:`, errorMessage);
     await runMigrations();
     return true;
   }
@@ -99,12 +101,13 @@ async function runMigrations() {
 
     console.log(`[OAuth Postgres] Migrations completed successfully`);
   } catch (error) {
-    console.error(`[OAuth Postgres] Migration failed:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[OAuth Postgres] Migration failed:`, errorMessage);
     // Don't throw - let the app continue and fail on actual DB operations if needed
   }
 }
 
 // For migration purposes, export a function to get the connection URL
 export async function getConnectionUrlForMigration(): Promise<string> {
-  return getPostgresConnectionUrl();
+  return getConnectionUrl();
 }

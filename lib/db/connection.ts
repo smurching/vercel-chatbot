@@ -45,11 +45,17 @@ export async function getDatabricksToken(): Promise<string> {
   }
 
   const data = await response.json();
-  oauthToken = data.access_token;
+  const accessToken = data.access_token;
+
+  if (!accessToken) {
+    throw new Error('No access token received from OAuth response');
+  }
+
+  oauthToken = accessToken;
   // Set expiration with a 5-minute buffer
   tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
 
-  return oauthToken;
+  return accessToken;
 }
 
 /**

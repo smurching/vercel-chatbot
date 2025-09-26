@@ -35,7 +35,8 @@ async function main() {
 
     await schemaConnection.end();
   } catch (error) {
-    console.warn(`⚠️ Schema creation warning:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️ Schema creation warning:`, errorMessage);
     // Continue with migration even if schema creation had issues
   }
 
@@ -47,12 +48,16 @@ async function main() {
     const env = {...process.env};
     if (!process.env.POSTGRES_URL) {
       console.log('🔐 Using OAuth token for database authentication');
-      const token = await getDatabricksToken();
-      env['PGPASSWORD'] = token;
+      try {
+        const token = await getDatabricksToken();
+        env['PGPASSWORD'] = token;
+      } catch (tokenError) {
+        const errorMessage = tokenError instanceof Error ? tokenError.message : String(tokenError);
+        throw new Error(`Failed to get OAuth token: ${errorMessage}`);
+      }
     } else {
       console.log('🔐 Using password from POSTGRES_URL for database authentication');
     }
-    const token = await getDatabricksToken();
 
     const child = spawn('npx', ['drizzle-kit', 'push', '--force'], {
       env: env,
@@ -71,12 +76,14 @@ async function main() {
     });
     console.log('✅ Database migration completed successfully');
   } catch (error) {
-    console.error('❌ Database migration failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Database migration failed:', errorMessage);
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error('❌ Migration script failed:', error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.error('❌ Migration script failed:', errorMessage);
   process.exit(1);
 });
