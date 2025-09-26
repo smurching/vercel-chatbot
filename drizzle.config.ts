@@ -11,22 +11,6 @@ function getSchemaName(): string {
 }
 
 const schemaName = getSchemaName();
-console.log(JSON.stringify({
-      schema: './lib/db/schema.ts',
-      out: './lib/db/migrations',
-      dialect: 'postgresql',
-      dbCredentials: {
-        host: process.env.PGHOST,
-        port: parseInt(process.env.PGPORT || '5432'),
-        user: process.env.PGUSER,
-        password: process.env.PGPASSWORD, // Will be set by migrate.ts script
-        database: process.env.PGDATABASE,
-        ssl: process.env.PGSSLMODE !== 'disable',
-      },
-      schemaFilter: [schemaName],
-      verbose: true,
-    }));
-
 // For compatibility with drizzle-kit CLI, use PG* environment variables
 // The password will be provided via PGPASSWORD environment variable from migrate.ts
 export default defineConfig({
