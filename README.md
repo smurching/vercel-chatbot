@@ -40,13 +40,21 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
    pnpm install
    ```
 
-2. **Configure Databricks Service Principal**:
+2. **Configure Databricks Authentication**:
 
-   Create a service principal in your Databricks workspace:
-   - Go to Settings → Developer → OAuth Apps
-   - Create a new OAuth application
-   - Note down the `Client ID` and `Client Secret`
+   Choose one of two authentication methods:
+
+   **Option A: Service Principal OAuth (Recommended for production)**
+
+   - [Create a service principal](https://docs.databricks.com/aws/en/admin/users-groups/manage-service-principals?language=Workspace%C2%A0admin%C2%A0settings#-add-service-principals-to-your-account) in your Databricks workspace
    - See [Databricks OAuth guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html) for detailed steps
+
+   **Option B: Personal Access Token**
+
+   - Generate a personal access token in your Databricks workspace
+   - Go to Settings → Developer → Access tokens → Generate new token
+   - See [Databricks PAT guide](https://docs.databricks.com/en/dev-tools/auth/pat.html) for detailed steps
+
 
 3. **Set up environment variables**:
    ```bash
@@ -54,8 +62,28 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
    ```
 
    Edit `.env.local` with your credentials:
+
+   **For Personal Access Token authentication:**
    ```env
-   # Required: Databricks workspace
+   # Required: Databricks workspace and PAT
+   DATABRICKS_HOST=your-workspace.cloud.databricks.com
+   DATABRICKS_TOKEN=your-personal-access-token
+
+   # Required: PostgreSQL database
+   PGHOST=your-postgres-host
+   PGDATABASE=your-database-name
+   PGUSER=your-username
+   PGPORT=5432
+
+   # Optional: Additional features
+   AI_GATEWAY_API_KEY=your-api-key  # For non-Vercel deployments
+   BLOB_READ_WRITE_TOKEN=****       # For file uploads
+   REDIS_URL=****                   # For resumable streams
+   ```
+
+   **For Service Principal OAuth authentication:**
+   ```env
+   # Required: Databricks workspace and OAuth
    DATABRICKS_HOST=your-workspace.cloud.databricks.com
    DATABRICKS_CLIENT_ID=your-oauth-client-id
    DATABRICKS_CLIENT_SECRET=your-oauth-client-secret
