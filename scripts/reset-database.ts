@@ -1,18 +1,18 @@
-const { config } = require('dotenv');
-const postgres = require('postgres');
+import { config } from 'dotenv';
+import postgres from 'postgres';
+import { getHostUrl } from '../lib/databricks-host-utils';
 
 config({ path: '.env.local' });
 
 async function getDatabricksToken() {
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const databricksHost = process.env.DATABRICKS_HOST;
 
-  if (!clientId || !clientSecret || !databricksHost) {
+  if (!clientId || !clientSecret) {
     throw new Error('DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST must be set');
   }
 
-  const tokenUrl = `https://${databricksHost}/oidc/v1/token`;
+  const tokenUrl = `${getHostUrl()}/oidc/v1/token`;
 
   const response = await fetch(tokenUrl, {
     method: 'POST',

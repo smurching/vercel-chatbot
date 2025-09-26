@@ -1,16 +1,17 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
+
+import { getHostUrl } from '../lib/databricks-host-utils';
 
 async function getToken() {
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const databricksHost = process.env.DATABRICKS_HOST;
 
-  if (!clientId || !clientSecret || !databricksHost) {
-    console.error('Missing required env vars');
+  if (!clientId || !clientSecret) {
+    console.error('Missing required env vars: DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, DATABRICKS_HOST');
     process.exit(1);
   }
 
-  const tokenUrl = `https://${databricksHost}/oidc/v1/token`;
+  const tokenUrl = `${getHostUrl()}/oidc/v1/token`;
 
   const response = await fetch(tokenUrl, {
     method: 'POST',

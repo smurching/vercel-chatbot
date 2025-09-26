@@ -156,6 +156,11 @@ export async function saveChat({
   title: string;
   visibility: VisibilityType;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[saveChat] Database not available - using in-memory storage');
+    return saveInMemoryChat({ id, userId, title, visibility });
+  }
+
   try {
     return await (await ensureDb()).insert(chat).values({
       id,
@@ -200,6 +205,15 @@ export async function getChatsByUserId({
   startingAfter: string | null;
   endingBefore: string | null;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[getChatsByUserId] Database not available - using in-memory storage');
+    const inMemoryChats = getInMemoryChats(id);
+    return {
+      chats: inMemoryChats.slice(0, limit),
+      hasMore: inMemoryChats.length > limit,
+    };
+  }
+
   try {
     console.log('[getChatsByUserId] Starting query with params:', { id, limit, startingAfter, endingBefore });
 
@@ -281,6 +295,11 @@ export async function getChatsByUserId({
 }
 
 export async function getChatById({ id }: { id: string }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[getChatById] Database not available - using in-memory storage');
+    return getInMemoryChat(id);
+  }
+
   try {
     const [selectedChat] = await (await ensureDb()).select().from(chat).where(eq(chat.id, id));
     if (!selectedChat) {
@@ -298,6 +317,12 @@ export async function saveMessages({
 }: {
   messages: Array<DBMessage>;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[saveMessages] Database not available - using in-memory storage');
+    messages.forEach(msg => saveInMemoryMessage(msg));
+    return;
+  }
+
   try {
     return await (await ensureDb()).insert(message).values(messages);
   } catch (error) {
@@ -306,6 +331,11 @@ export async function saveMessages({
 }
 
 export async function getMessagesByChatId({ id }: { id: string }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[getMessagesByChatId] Database not available - using in-memory storage');
+    return getInMemoryChatMessages(id);
+  }
+
   try {
     return await (await ensureDb())
       .select()
@@ -562,6 +592,12 @@ export async function updateChatLastContextById({
   // Store raw LanguageModelUsage to keep it simple
   context: LanguageModelV2Usage;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[updateChatLastContextById] Database not available - using in-memory storage');
+    updateInMemoryChatContext(chatId, context);
+    return;
+  }
+
   try {
     return await (await ensureDb())
       .update(chat)
@@ -580,6 +616,11 @@ export async function getMessageCountByUserId({
   id: string;
   differenceInHours: number;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[getMessageCountByUserId] Database not available - returning 0 count');
+    return 0;
+  }
+
   try {
     const twentyFourHoursAgo = new Date(
       Date.now() - differenceInHours * 60 * 60 * 1000,
@@ -614,6 +655,11 @@ export async function createStreamId({
   streamId: string;
   chatId: string;
 }) {
+  if (!isDatabaseAvailable()) {
+    console.log('[createStreamId] Database not available - skipping stream ID creation');
+    return;
+  }
+
   try {
     await (await ensureDb())
       .insert(stream)

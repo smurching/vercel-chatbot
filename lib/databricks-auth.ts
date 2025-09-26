@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getUserFromHeaders, type User } from '@/lib/db/queries';
+import { getHostUrl, getHostDomain } from '@/lib/databricks-host-utils';
 
 export type UserType = 'regular'; // Simplified - no more guest users
 
@@ -16,7 +17,7 @@ export interface AuthSession {
   user: AuthUser;
 }
 
-// Cache for SCIM user data in local development
+// Cache for SCIM user data in local development - using longer duration for dev
 let cachedScimUser: any = null;
 let cacheExpiry = 0;
 
@@ -26,18 +27,19 @@ let cacheExpiry = 0;
 async function getDatabricksCurrentUser(): Promise<any> {
   // Check cache first
   if (cachedScimUser && Date.now() < cacheExpiry) {
-    console.log('[getDatabricksCurrentUser] Using cached SCIM user data');
+    console.log('[getDatabricksCurrentUser] Using cached SCIM user data (expires in', Math.floor((cacheExpiry - Date.now()) / 1000), 'seconds)');
     return cachedScimUser;
   }
 
-  const databricksHost = process.env.DATABRICKS_HOST;
+  console.log('[getDatabricksCurrentUser] Cache miss - fetching from SCIM API');
+
   const databricksToken = process.env.DATABRICKS_TOKEN; // Personal access token for local dev
   const databricksClientId = process.env.DATABRICKS_CLIENT_ID;
   const databricksClientSecret = process.env.DATABRICKS_CLIENT_SECRET;
 
-  if (!databricksHost) {
-    throw new Error('DATABRICKS_HOST environment variable is required');
-  }
+  // Get normalized host (handles both formats: with/without https://)
+  const normalizedHost = getHostDomain();
+  const hostUrl = getHostUrl();
 
   let authHeader: string;
 
@@ -46,7 +48,7 @@ async function getDatabricksCurrentUser(): Promise<any> {
     console.log('[getDatabricksCurrentUser] Using OAuth for SCIM API');
 
     // Get OAuth token
-    const tokenUrl = `https://${databricksHost}/oidc/v1/token`;
+    const tokenUrl = `${hostUrl}/oidc/v1/token`;
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
@@ -70,7 +72,7 @@ async function getDatabricksCurrentUser(): Promise<any> {
   }
 
   // Call SCIM API to get current user
-  const scimUrl = `https://${databricksHost}/api/2.0/preview/scim/v2/Me`;
+  const scimUrl = `${hostUrl}/api/2.0/preview/scim/v2/Me`;
   console.log('[getDatabricksCurrentUser] Fetching user from SCIM API:', scimUrl);
 
   const scimResponse = await fetch(scimUrl, {
@@ -93,9 +95,10 @@ async function getDatabricksCurrentUser(): Promise<any> {
     emails: scimUser.emails,
   });
 
-  // Cache for 5 minutes
+  // Cache for 30 minutes in development (longer since user won't change)
   cachedScimUser = scimUser;
-  cacheExpiry = Date.now() + 5 * 60 * 1000;
+  cacheExpiry = Date.now() + 30 * 60 * 1000;
+  console.log('[getDatabricksCurrentUser] Cached SCIM user data for 30 minutes');
 
   return scimUser;
 }
@@ -113,7 +116,7 @@ export async function getAuthSession(request?: Request): Promise<AuthSession | n
       const forwardedEmail = request.headers.get('X-Forwarded-Email');
       const forwardedPreferredUsername = request.headers.get('X-Forwarded-Preferred-Username');
 
-      // Get or create user in database
+      // Get user from headers
       const user = await getUserFromHeaders(request);
 
       return {

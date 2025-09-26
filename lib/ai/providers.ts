@@ -5,6 +5,7 @@ import {
 } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
+import { getHostUrl } from '@/lib/databricks-host-utils';
 import type {
   LanguageModelV2,
   LanguageModelV2Middleware,
@@ -74,7 +75,13 @@ async function getDatabricksToken(): Promise<string | null> {
   return oauthToken;
 }
 
-const workspaceHostname = process.env.DATABRICKS_HOST ? `https://${process.env.DATABRICKS_HOST}` : 'unknown-databricks-workspace-host';
+const workspaceHostname = (() => {
+  try {
+    return getHostUrl();
+  } catch {
+    return 'unknown-databricks-workspace-host';
+  }
+})();
 // Custom fetch function to transform Databricks responses to OpenAI format
 const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();

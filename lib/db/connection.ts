@@ -1,6 +1,7 @@
 /**
  * Shared database connection utilities for OAuth and traditional authentication
  */
+import { getHostUrl, getHostDomain } from '@/lib/databricks-host-utils';
 
 // OAuth token management
 let oauthToken: string | null = null;
@@ -17,16 +18,15 @@ export async function getDatabricksToken(): Promise<string> {
 
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const databricksHost = process.env.DATABRICKS_HOST;
 
-  if (!clientId || !clientSecret || !databricksHost) {
+  if (!clientId || !clientSecret) {
     throw new Error(
       'DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST must be set for OAuth authentication',
     );
   }
 
   // Mint a new OAuth token
-  const tokenUrl = `https://${databricksHost}/oidc/v1/token`;
+  const tokenUrl = `${getHostUrl()}/oidc/v1/token`;
 
   const response = await fetch(tokenUrl, {
     method: 'POST',
@@ -97,9 +97,13 @@ export async function getConnectionUrl(): Promise<string> {
 export function shouldUseOAuth(): boolean {
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const databricksHost = process.env.DATABRICKS_HOST;
 
-  return !!(clientId && clientSecret && databricksHost);
+  try {
+    getHostDomain(); // This will throw if DATABRICKS_HOST is not set
+    return !!(clientId && clientSecret);
+  } catch {
+    return false;
+  }
 }
 
 /**
