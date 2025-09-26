@@ -20,7 +20,7 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     'How can you help me?',
-    'What kinds of questions can I ask you?',
+    'Tell me something I might not know',
   ];
 
   return (

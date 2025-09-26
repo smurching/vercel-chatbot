@@ -26,54 +26,49 @@ async function main() {
 
   // Create custom schema if needed
   const connectionUrl = await getConnectionUrl();
-  if (schemaName !== 'public') {
-    try {
-      const schemaConnection = postgres(connectionUrl, { max: 1 });
+  try {
+    const schemaConnection = postgres(connectionUrl, { max: 1 });
 
-      console.log(`📁 Creating schema '${schemaName}' if it doesn't exist...`);
-      await schemaConnection`CREATE SCHEMA IF NOT EXISTS ${schemaConnection(schemaName)}`;
-      console.log(`✅ Schema '${schemaName}' ensured to exist`);
+    console.log(`📁 Creating schema '${schemaName}' if it doesn't exist...`);
+    await schemaConnection`CREATE SCHEMA IF NOT EXISTS ${schemaConnection(schemaName)}`;
+    console.log(`✅ Schema '${schemaName}' ensured to exist`);
 
-      await schemaConnection.end();
-    } catch (error) {
-      console.warn(`⚠️ Schema creation warning:`, error.message);
-      // Continue with migration even if schema creation had issues
-    }
+    await schemaConnection.end();
+  } catch (error) {
+    console.warn(`⚠️ Schema creation warning:`, error.message);
+    // Continue with migration even if schema creation had issues
   }
 
   try {
-    // For OAuth with custom schemas, use drizzle-kit push to create tables
-    if (schemaName !== 'public' && process.env.DATABRICKS_CLIENT_ID) {
-      console.log('🔄 Using drizzle-kit push for OAuth with custom schema...');
+    // Use drizzle-kit push to create tables
+    console.log('🔄 Using drizzle-kit push to update schema...');
 
-      // Get OAuth token for password
+    // Get OAuth token for password
+    const env = {...process.env};
+    if (!process.env.POSTGRES_URL) {
+      console.log('🔐 Using OAuth token for database authentication');
       const token = await getDatabricksToken();
-
-      const child = spawn('npx', ['drizzle-kit', 'push', '--force'], {
-        env: { ...process.env, PGPASSWORD: token },
-        stdio: ['pipe', 'inherit', 'inherit']
-      });
-
-      // Auto-confirm with 'y'
-      child.stdin.write('y\n');
-      child.stdin.end();
-
-      await new Promise((resolve, reject) => {
-        child.on('close', (code) => {
-          if (code === 0) {
-            console.log('✅ drizzle-kit push completed successfully');
-            resolve(code);
-          } else {
-            reject(new Error(`drizzle-kit push exited with code ${code}`));
-          }
-        });
-      });
+      env['PGPASSWORD'] = token;
     } else {
-      console.log('🔄 Using auto-migrate for traditional setup...');
-      const { autoMigrate } = await import('./auto-migrate');
-      await autoMigrate();
+      console.log('🔐 Using password from POSTGRES_URL for database authentication');
     }
+    const token = await getDatabricksToken();
 
+    const child = spawn('npx', ['drizzle-kit', 'push', '--force'], {
+      env: env,
+      stdio: ['pipe', 'inherit', 'inherit']
+    });
+
+    await new Promise((resolve, reject) => {
+      child.on('close', (code) => {
+        if (code === 0) {
+          console.log('✅ drizzle-kit push completed successfully');
+          resolve(code);
+        } else {
+          reject(new Error(`drizzle-kit push exited with code ${code}`));
+        }
+      });
+    });
     console.log('✅ Database migration completed successfully');
   } catch (error) {
     console.error('❌ Database migration failed:', error);

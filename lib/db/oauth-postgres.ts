@@ -1,7 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
-import { autoMigrate } from './auto-migrate';
 import { getConnectionUrl, getSchemaName } from './connection';
 
 
@@ -53,14 +52,6 @@ export async function getDb() {
       console.error(`[OAuth Postgres] Failed to create schema or set search_path for '${schemaName}':`, error);
       // Don't throw - maybe it already exists or we don't have permissions
     }
-  }
-
-  // Run automatic migrations on first connection
-  try {
-    await autoMigrate();
-  } catch (error) {
-    console.error('[OAuth Postgres] Auto-migration failed:', error);
-    // Continue anyway - tables might already exist
   }
 
   return drizzle(sql, { schema });
