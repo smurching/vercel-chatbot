@@ -2,6 +2,9 @@ import { config } from 'dotenv';
 import { isDatabaseAvailable, getDatabricksToken, getSchemaName, getConnectionUrl } from './connection';
 import { spawn } from 'child_process';
 import postgres from 'postgres';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Load environment variables
 config({
@@ -59,7 +62,11 @@ async function main() {
       console.log('🔐 Using password from POSTGRES_URL for database authentication');
     }
 
-    const child = spawn('npx', ['drizzle-kit', 'push', '--force'], {
+    // Find the drizzle-kit binary path
+    const projectRoot = join(__dirname, '..', '..');
+    const drizzleBin = join(projectRoot, 'node_modules', '.bin', 'drizzle-kit');
+
+    const child = spawn(drizzleBin, ['push', '--force'], {
       env: env,
       stdio: ['pipe', 'inherit', 'inherit']
     });

@@ -91,12 +91,31 @@ async function runMigrations() {
   try {
     console.log(`[OAuth Postgres] Running database migrations using our migration script...`);
 
-    // Import and run our working migration script directly
-    const { execSync } = await import('child_process');
+    // Import and run our migrate.ts script directly using tsx
+    const { spawn } = await import('child_process');
+    const { join } = await import('path');
 
-    execSync('node scripts/run-migration-oauth.js', {
-      stdio: 'inherit',
-      env: process.env
+    const projectRoot = join(__dirname, '..', '..');
+    const tsxBin = join(projectRoot, 'node_modules', '.bin', 'tsx');
+    const migrateScript = join(__dirname, 'migrate.ts');
+
+    await new Promise((resolve, reject) => {
+      const child = spawn(tsxBin, [migrateScript], {
+        stdio: 'inherit',
+        env: process.env
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve(code);
+        } else {
+          reject(new Error(`Migration script exited with code ${code}`));
+        }
+      });
+
+      child.on('error', (error) => {
+        reject(error);
+      });
     });
 
     console.log(`[OAuth Postgres] Migrations completed successfully`);
