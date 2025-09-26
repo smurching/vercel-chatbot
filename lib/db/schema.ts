@@ -24,7 +24,7 @@ const tablePrefix = schemaName === 'public' ? '' : `${schemaName}.`;
 
 // Create the schema object for custom schemas
 // const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
-const customSchema = pgSchema("ai_chatbot");
+const customSchema = pgSchema(schemaName);
 
 // Helper function to create table with proper schema handling
 function createTable(tableName: string, columns: any) {
