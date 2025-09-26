@@ -38,11 +38,6 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
    pnpm install
    ```
 
-   **Note**: If you encounter missing dependency errors for markdown rendering packages (`mermaid`, `react-markdown`, etc.), install them:
-   ```bash
-   pnpm add mermaid react-markdown rehype-katex rehype-raw remark-gfm remark-math
-   ```
-
 2. **Configure Databricks Service Principal**:
 
    Create a service principal in your Databricks workspace:
@@ -102,9 +97,10 @@ For production deployments, user authentication works properly with individual D
 
 ### Authentication Notes
 
-- **No password required**: Database connections use OAuth token exchange automatically
-- **Token management**: OAuth tokens are refreshed automatically before expiration
-- **Local development**: Uses your system username as the user identifier
+Out of the box, this app supports a subset of Databricks unified auth. In particular, the following auth mechanisms are supported:
+- **OAuth M2M**: you can set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` to authenticate using service principal credentials to the database instance and serving endpoints
+- **PAT**: you can use `DATABRICKS_HOST` and `DATABRICKS_TOKEN` to authenticate using a personal access token
+
 
 ## Deployment
 
