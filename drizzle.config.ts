@@ -92,15 +92,19 @@ export async function createConfig() {
   });
 }
 
-// For compatibility with drizzle-kit CLI, we need to export a default config
-// This will be used by migrate.ts which handles the OAuth token generation
+// For compatibility with drizzle-kit CLI, use PG* environment variables
+// The password will be provided via PGPASSWORD environment variable from migrate.ts
 export default defineConfig({
   schema: './lib/db/schema.ts',
   out: './lib/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    // This will be overridden by migrate.ts with proper OAuth token
-    url: process.env.DATABASE_URL || 'postgresql://placeholder',
+    host: process.env.PGHOST,
+    port: parseInt(process.env.PGPORT || '5432'),
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD, // Will be set by migrate.ts script
+    database: process.env.PGDATABASE,
+    ssl: process.env.PGSSLMODE !== 'disable',
   },
   schemaFilter: schemaName === 'public' ? ['public'] : [schemaName],
   verbose: true,
