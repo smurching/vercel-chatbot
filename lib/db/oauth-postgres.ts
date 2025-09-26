@@ -1,38 +1,57 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
-import { getConnectionUrl, getSchemaName } from './connection';
+import { getConnectionUrl, getSchemaName, getDatabricksToken } from './connection';
 
 
 // Connection pool management
 let sqlConnection: postgres.Sql | null = null;
-let connectionExpiresAt = 0;
-const CONNECTION_LIFETIME = 4 * 60 * 1000; // Refresh connection every 4 minutes (before token expires)
+let currentToken: string | null = null;
 
 async function getConnection(): Promise<postgres.Sql> {
-  // Check if we need a new connection (expired token or no connection)
-  if (!sqlConnection || Date.now() > connectionExpiresAt) {
-    // Close existing connection if any
-    if (sqlConnection) {
-      await sqlConnection.end();
-      sqlConnection = null;
-    }
+  // Get the current token to check if it's changed
+  const freshToken = await getDatabricksToken();
 
+  // If we have a connection but the token has changed, we need to recreate the connection
+  // This ensures we're always using a valid token
+  if (sqlConnection && currentToken !== freshToken) {
+    console.log('[OAuth Postgres] Token changed, closing existing connection pool');
+    await sqlConnection.end();
+    sqlConnection = null;
+    currentToken = null;
+  }
+
+  // Create a new connection if needed
+  if (!sqlConnection) {
     const connectionUrl = await getConnectionUrl();
     sqlConnection = postgres(connectionUrl, {
       max: 10, // connection pool size
-      idle_timeout: 20,
+      idle_timeout: 20, // close idle connections after 20 seconds
       connect_timeout: 10,
+      // Important: Set max_lifetime to ensure connections don't outlive the token
+      // OAuth tokens typically expire in 1 hour, we'll refresh connections more frequently
+      max_lifetime: 60 * 10, // 10 minutes max connection lifetime
     });
 
-    // Set connection expiration
-    connectionExpiresAt = Date.now() + CONNECTION_LIFETIME;
-    console.log('Created new Postgres connection with OAuth token');
+    currentToken = freshToken;
+    console.log('[OAuth Postgres] Created new connection pool with fresh OAuth token');
   }
 
   return sqlConnection;
 }
 
+
+// Helper function to detect token expiry errors
+function isTokenExpiryError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes('invalid authorization') ||
+           message.includes('databricks token') ||
+           message.includes('authentication failed') ||
+           message.includes('28p01'); // PostgreSQL auth error code
+  }
+  return false;
+}
 
 // Export a function to get the Drizzle instance with fresh connection
 export async function getDb() {
@@ -52,6 +71,26 @@ export async function getDb() {
   }
 
   return drizzle(sql, { schema });
+}
+
+// Export a wrapper that handles token expiry with retry
+export async function getDbWithRetry() {
+  try {
+    return await getDb();
+  } catch (error) {
+    if (isTokenExpiryError(error)) {
+      console.log('[OAuth Postgres] Token expiry detected, forcing connection refresh');
+      // Force connection refresh by clearing the current connection
+      if (sqlConnection) {
+        await sqlConnection.end();
+        sqlConnection = null;
+        currentToken = null;
+      }
+      // Retry with fresh connection
+      return await getDb();
+    }
+    throw error;
+  }
 }
 
 // Note: Runtime migrations have been removed.

@@ -52,8 +52,13 @@ export async function getDatabricksToken(): Promise<string> {
   }
 
   oauthToken = accessToken;
-  // Set expiration with a 5-minute buffer
-  tokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
+  // Set expiration with a 10-minute buffer (OAuth tokens typically expire in 1 hour)
+  // We want to refresh well before expiry to avoid any edge cases
+  const expiresInSeconds = data.expires_in || 3600; // Default to 1 hour if not provided
+  const bufferSeconds = Math.min(600, Math.floor(expiresInSeconds * 0.2)); // 10 minutes or 20% of lifetime, whichever is smaller
+  tokenExpiresAt = Date.now() + (expiresInSeconds - bufferSeconds) * 1000;
+
+  console.log(`[OAuth] Token acquired, expires in ${expiresInSeconds}s, will refresh in ${expiresInSeconds - bufferSeconds}s`);
 
   return accessToken;
 }

@@ -79,16 +79,22 @@ async function ensureDb() {
     throw new Error('Database not available - using in-memory storage');
   }
 
-  if (!db && process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
-    console.log('[ensureDb] No db instance found, initializing OAuth connection...');
+  // Always get a fresh DB instance for OAuth connections to handle token expiry
+  if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+    console.log('[ensureDb] Getting OAuth database connection...');
     try {
-      db = await getDb();
-      console.log('[ensureDb] OAuth db connection initialized successfully');
+      // Import getDbWithRetry for better error handling
+      const { getDbWithRetry } = await import('./oauth-postgres');
+      const database = await getDbWithRetry();
+      console.log('[ensureDb] OAuth db connection obtained successfully');
+      return database;
     } catch (error) {
-      console.error('[ensureDb] Failed to initialize OAuth connection:', error);
+      console.error('[ensureDb] Failed to get OAuth connection:', error);
       throw error;
     }
   }
+
+  // For non-OAuth connections, use cached instance
   if (!db) {
     console.error('[ensureDb] DB is still null after initialization attempt!');
     throw new Error('Database connection could not be established');
