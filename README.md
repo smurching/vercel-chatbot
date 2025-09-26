@@ -26,8 +26,10 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
 ### Prerequisites
 
 1. **Databricks workspace** with OAuth M2M app configured
-2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/)
-3. **Databricks credentials** for querying serving endpoints and connecting to the database instance. 
+2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) - **Required**
+3. **Databricks credentials** for querying serving endpoints and connecting to the database instance.
+
+**Note:** This application requires a database connection and no longer supports in-memory storage for simplified deployment and maintenance. 
 
 ### Setup Steps
 

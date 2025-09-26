@@ -14,12 +14,12 @@ config({
 async function main() {
   console.log('🔄 Running database migration...');
 
-  // Check if database is configured
+  // Require database configuration
   if (!isDatabaseAvailable()) {
-    console.log('ℹ️  No database configuration found (PGDATABASE or POSTGRES_URL not set)');
-    console.log('ℹ️  Skipping database migration - application will use in-memory storage');
-    console.log('✅ Migration check completed');
-    return;
+    console.error('❌ Database configuration required!');
+    console.error('❌ Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
+    console.error('❌ This application no longer supports in-memory storage.');
+    process.exit(1);
   }
 
   console.log('📊 Database configuration detected, running migrations...');

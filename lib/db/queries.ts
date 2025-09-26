@@ -38,47 +38,29 @@ import { isDatabaseAvailable } from './connection';
 
 // Re-export User type for external use
 export type { User } from './schema';
-import {
-  getInMemoryUser,
-  setInMemoryUser,
-  createInMemoryUser,
-  getInMemoryChats,
-  getInMemoryChat,
-  saveInMemoryChat,
-  deleteInMemoryChat,
-  getInMemoryChatMessages,
-  saveInMemoryMessage,
-  updateInMemoryChatTitle,
-  updateInMemoryChatVisibility,
-  updateInMemoryChatContext,
-} from './in-memory-storage';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
 // https://authjs.dev/reference/adapter/drizzle
 
-// Use OAuth-based connection if credentials are available, otherwise fall back to POSTGRES_URL
+// Require database configuration - no fallback to in-memory storage
 let db: ReturnType<typeof drizzle>;
 
-if (isDatabaseAvailable()) {
-  if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
-    // OAuth path - db will be initialized asynchronously
-    console.log('Using OAuth authentication for Postgres connection');
-  } else if (process.env.POSTGRES_URL) {
-    // Traditional connection string
-    const client = postgres(process.env.POSTGRES_URL);
-    db = drizzle(client);
-  }
-} else {
-  console.log('No database configured - using in-memory storage');
+if (!isDatabaseAvailable()) {
+  throw new Error('Database configuration required. Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
+}
+
+if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+  // OAuth path - db will be initialized asynchronously
+  console.log('Using OAuth authentication for Postgres connection');
+} else if (process.env.POSTGRES_URL) {
+  // Traditional connection string
+  const client = postgres(process.env.POSTGRES_URL);
+  db = drizzle(client);
 }
 
 // Helper to ensure db is initialized for OAuth path
 async function ensureDb() {
-  if (!isDatabaseAvailable()) {
-    throw new Error('Database not available - using in-memory storage');
-  }
-
   // Always get a fresh DB instance for OAuth connections to handle token expiry
   if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
     console.log('[ensureDb] Getting OAuth database connection...');
@@ -103,11 +85,6 @@ async function ensureDb() {
 }
 
 export async function getUser(email: string): Promise<Array<User>> {
-  if (!isDatabaseAvailable()) {
-    const inMemoryUser = getInMemoryUser(email);
-    return inMemoryUser ? [inMemoryUser] : [];
-  }
-
   try {
     return await (await ensureDb()).select().from(user).where(eq(user.email, email));
   } catch (error) {
@@ -165,11 +142,6 @@ export async function saveChat({
   title: string;
   visibility: VisibilityType;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[saveChat] Database not available - using in-memory storage');
-    return saveInMemoryChat({ id, userId, title, visibility });
-  }
-
   try {
     return await (await ensureDb()).insert(chat).values({
       id,
@@ -214,14 +186,6 @@ export async function getChatsByUserId({
   startingAfter: string | null;
   endingBefore: string | null;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[getChatsByUserId] Database not available - using in-memory storage');
-    const inMemoryChats = getInMemoryChats(id);
-    return {
-      chats: inMemoryChats.slice(0, limit),
-      hasMore: inMemoryChats.length > limit,
-    };
-  }
 
   try {
     console.log('[getChatsByUserId] Starting query with params:', { id, limit, startingAfter, endingBefore });
@@ -304,11 +268,6 @@ export async function getChatsByUserId({
 }
 
 export async function getChatById({ id }: { id: string }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[getChatById] Database not available - using in-memory storage');
-    return getInMemoryChat(id);
-  }
-
   try {
     const [selectedChat] = await (await ensureDb()).select().from(chat).where(eq(chat.id, id));
     if (!selectedChat) {
@@ -326,12 +285,6 @@ export async function saveMessages({
 }: {
   messages: Array<DBMessage>;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[saveMessages] Database not available - using in-memory storage');
-    messages.forEach(msg => saveInMemoryMessage(msg));
-    return;
-  }
-
   try {
     return await (await ensureDb()).insert(message).values(messages);
   } catch (error) {
@@ -340,11 +293,6 @@ export async function saveMessages({
 }
 
 export async function getMessagesByChatId({ id }: { id: string }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[getMessagesByChatId] Database not available - using in-memory storage');
-    return getInMemoryChatMessages(id);
-  }
-
   try {
     return await (await ensureDb())
       .select()
@@ -601,12 +549,6 @@ export async function updateChatLastContextById({
   // Store raw LanguageModelUsage to keep it simple
   context: LanguageModelV2Usage;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[updateChatLastContextById] Database not available - using in-memory storage');
-    updateInMemoryChatContext(chatId, context);
-    return;
-  }
-
   try {
     return await (await ensureDb())
       .update(chat)
@@ -625,10 +567,6 @@ export async function getMessageCountByUserId({
   id: string;
   differenceInHours: number;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[getMessageCountByUserId] Database not available - returning 0 count');
-    return 0;
-  }
 
   try {
     const twentyFourHoursAgo = new Date(
@@ -664,11 +602,6 @@ export async function createStreamId({
   streamId: string;
   chatId: string;
 }) {
-  if (!isDatabaseAvailable()) {
-    console.log('[createStreamId] Database not available - skipping stream ID creation');
-    return;
-  }
-
   try {
     await (await ensureDb())
       .insert(stream)
