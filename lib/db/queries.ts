@@ -34,6 +34,21 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 import { getDb } from './oauth-postgres';
+import { isDatabaseAvailable } from './connection';
+import {
+  getInMemoryUser,
+  setInMemoryUser,
+  createInMemoryUser,
+  getInMemoryChats,
+  getInMemoryChat,
+  saveInMemoryChat,
+  deleteInMemoryChat,
+  getInMemoryChatMessages,
+  saveInMemoryMessage,
+  updateInMemoryChatTitle,
+  updateInMemoryChatVisibility,
+  updateInMemoryChatContext,
+} from './in-memory-storage';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -42,19 +57,25 @@ import { getDb } from './oauth-postgres';
 // Use OAuth-based connection if credentials are available, otherwise fall back to POSTGRES_URL
 let db: ReturnType<typeof drizzle>;
 
-if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
-  // OAuth path - db will be initialized asynchronously
-  console.log('Using OAuth authentication for Postgres connection');
-} else if (process.env.POSTGRES_URL) {
-  // Traditional connection string
-  const client = postgres(process.env.POSTGRES_URL);
-  db = drizzle(client);
+if (isDatabaseAvailable()) {
+  if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+    // OAuth path - db will be initialized asynchronously
+    console.log('Using OAuth authentication for Postgres connection');
+  } else if (process.env.POSTGRES_URL) {
+    // Traditional connection string
+    const client = postgres(process.env.POSTGRES_URL);
+    db = drizzle(client);
+  }
 } else {
-  throw new Error('Either POSTGRES_URL or Databricks OAuth credentials must be configured');
+  console.log('No database configured - using in-memory storage');
 }
 
 // Helper to ensure db is initialized for OAuth path
 async function ensureDb() {
+  if (!isDatabaseAvailable()) {
+    throw new Error('Database not available - using in-memory storage');
+  }
+
   if (!db && process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
     console.log('[ensureDb] No db instance found, initializing OAuth connection...');
     try {
@@ -73,6 +94,11 @@ async function ensureDb() {
 }
 
 export async function getUser(email: string): Promise<Array<User>> {
+  if (!isDatabaseAvailable()) {
+    const inMemoryUser = getInMemoryUser(email);
+    return inMemoryUser ? [inMemoryUser] : [];
+  }
+
   try {
     return await (await ensureDb()).select().from(user).where(eq(user.email, email));
   } catch (error) {
@@ -120,6 +146,14 @@ export async function getOrCreateUserFromHeaders(request: Request): Promise<User
 
     // Create new user if doesn't exist
     console.log(`[getOrCreateUserFromHeaders] Creating new user: ${userEmail}`);
+
+    if (!isDatabaseAvailable()) {
+      // Use in-memory storage
+      const newUser = createInMemoryUser(generateUUID(), userEmail);
+      console.log(`[getOrCreateUserFromHeaders] Created in-memory user: ${userEmail}`);
+      return newUser;
+    }
+
     const database = await ensureDb();
     const result = await database.insert(user).values({
       email: userEmail,

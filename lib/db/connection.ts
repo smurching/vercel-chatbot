@@ -107,3 +107,10 @@ export function shouldUseOAuth(): boolean {
 
   return !!(clientId && clientSecret && databricksHost);
 }
+
+/**
+ * Check if database storage is available
+ */
+export function isDatabaseAvailable(): boolean {
+  return !!(process.env.PGDATABASE || process.env.POSTGRES_URL);
+}

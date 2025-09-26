@@ -27,6 +27,7 @@ import { fetcher } from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
 import useSWRInfinite from 'swr/infinite';
 import { LoaderIcon } from './icons';
+import { isDatabaseAvailable } from '@/lib/db/connection';
 
 type GroupedChats = {
   today: Chat[];
@@ -96,6 +97,7 @@ export function getChatHistoryPaginationKey(
 export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
   const { setOpenMobile } = useSidebar();
   const { id } = useParams();
+  const databaseAvailable = isDatabaseAvailable();
 
   const {
     data: paginatedChatHistories,
@@ -103,9 +105,13 @@ export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
     isValidating,
     isLoading,
     mutate,
-  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
-    fallbackData: [],
-  });
+  } = useSWRInfinite<ChatHistory>(
+    databaseAvailable ? getChatHistoryPaginationKey : null,
+    fetcher,
+    {
+      fallbackData: [],
+    }
+  );
 
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -147,6 +153,32 @@ export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
       router.push('/');
     }
   };
+
+  // Show database unavailable message when no database is configured
+  if (!databaseAvailable) {
+    return (
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <div className="flex w-full flex-col items-center justify-center gap-3 px-2 py-4 text-sm text-zinc-500">
+            <div className="text-center">
+              Chats are not stored persistently. They will be lost when you refresh or navigate away.
+            </div>
+            <div className="text-center text-xs">
+              To enable chat history storage, ask your app developer to configure backend storage.{' '}
+              <a
+                href="https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-zinc-400"
+              >
+                Learn more
+              </a>
+            </div>
+          </div>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  }
 
   if (!user) {
     return (
