@@ -1,118 +1,111 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chat SDK</h1>
+<a href="https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app">
+  <h1 align="center">Databricks Agent Chat Template</h1>
 </a>
 
 <p align="center">
-    Chat SDK is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+    A chat application template for interacting with Databricks Agent Serving endpoints, built with Next.js, Vercel AI SDK, and Databricks authentication.
 </p>
 
 <p align="center">
-  <a href="https://chat-sdk.dev"><strong>Read Docs</strong></a> ·
   <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
+  <a href="#running-locally"><strong>Running Locally</strong></a> ·
+  <a href="#deployment"><strong>Deployment</strong></a>
 </p>
 <br/>
 
-## Features
+This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) with Databricks-specific integrations. For general features and additional documentation, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports xAI (default), OpenAI, Fireworks, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [PostgreSQL](https://www.postgresql.org/) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage (optional)
-- [Databricks Authentication](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html)
-  - OAuth-based authentication with your Databricks workspace
-  - No password management required
+## Key Databricks Features
 
-## Model Providers
+- **Databricks Agent Integration**: Direct connection to Databricks Agent Serving endpoints
+- **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
+- **Persistent Chat History**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration.
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
+## Running Locally
 
-### AI Gateway Authentication
+### Prerequisites
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
+1. **Databricks workspace** with OAuth M2M app configured
+2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/)
+3. **Databricks credentials** for querying serving endpoints and connecting to the database instance. 
 
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
-
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
-
-## Deploy Your Own
-
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET&envDescription=Generate%20a%20random%20secret%20to%20use%20for%20authentication&envLink=https%3A%2F%2Fgenerate-secret.vercel.app%2F32&project-name=my-awesome-chatbot&repository-name=my-awesome-chatbot&demo-title=AI%20Chatbot&demo-description=An%20Open-Source%20AI%20Chatbot%20Template%20Built%20With%20Next.js%20and%20the%20AI%20SDK%20by%20Vercel&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
-
-## Running locally
-
-### Quick Start (3 steps)
+### Setup Steps
 
 1. **Clone and install**:
    ```bash
-   git clone https://github.com/your-repo/databricks-chatbot
-   cd databricks-chatbot
-   npm install
+   git clone https://github.com/your-repo/databricks-agent-chat
+   cd databricks-agent-chat
+   pnpm install
    ```
 
-2. **Set up environment variables**:
+   **Note**: If you encounter missing dependency errors for markdown rendering packages (`mermaid`, `react-markdown`, etc.), install them:
+   ```bash
+   pnpm add mermaid react-markdown rehype-katex rehype-raw remark-gfm remark-math
+   ```
+
+2. **Configure Databricks Service Principal**:
+
+   Create a service principal in your Databricks workspace:
+   - Go to Settings → Developer → OAuth Apps
+   - Create a new OAuth application
+   - Note down the `Client ID` and `Client Secret`
+   - See [Databricks OAuth guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html) for detailed steps
+
+3. **Set up environment variables**:
    ```bash
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` and set these **required** variables:
+   Edit `.env.local` with your credentials:
    ```env
-   # Databricks workspace
+   # Required: Databricks workspace
    DATABRICKS_HOST=your-workspace.cloud.databricks.com
-
-   # Databricks authentication (choose one option)
-   # Option 1: OAuth credentials (recommended)
    DATABRICKS_CLIENT_ID=your-oauth-client-id
    DATABRICKS_CLIENT_SECRET=your-oauth-client-secret
 
-   # Option 2: Personal Access Token (alternative)
-   # DATABRICKS_TOKEN=your-personal-access-token
-
-   # PostgreSQL database (choose one option)
-   # Option 1: Individual variables (recommended for OAuth)
+   # Required: PostgreSQL database
    PGHOST=your-postgres-host
    PGDATABASE=your-database-name
    PGUSER=your-username
    PGPORT=5432
 
-   # Option 2: Connection string (alternative)
-   # POSTGRES_URL=postgresql://username:password@host:port/database
+   # Optional: Additional features
+   AI_GATEWAY_API_KEY=your-api-key  # For non-Vercel deployments
+   BLOB_READ_WRITE_TOKEN=****       # For file uploads
+   REDIS_URL=****                   # For resumable streams
    ```
 
-3. **Run the application**:
+4. **Run the application**:
    ```bash
    npm run dev
    ```
 
-The app will automatically:
-- Create the database schema (`ai_chatbot`)
-- Run all necessary migrations
-- Start on [localhost:8000](http://localhost:8000)
+   Or using pnpm:
+   ```bash
+   pnpm dev
+   ```
 
-### Prerequisites
+   The app starts on [localhost:3000](http://localhost:3000) and automatically:
+   - Creates the database schema (`ai_chatbot`)
+   - Runs all necessary migrations
+   - Sets up OAuth token management
 
-- **Databricks workspace** with OAuth app configured ([setup guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html))
-- **PostgreSQL database** (local, cloud, or managed service)
+### Development Mode Caveats
 
-### Optional Features
+**Important**: In development mode (`npm run dev`), conversations are stored on behalf of the **service principal**, not individual users. This means:
 
-Add these environment variables for additional features:
-- `AI_GATEWAY_API_KEY`: For non-Vercel deployments
-- `BLOB_READ_WRITE_TOKEN`: For file upload capabilities
-- `REDIS_URL`: For resumable streaming
+- All chat history is associated with the service principal account
+- Multiple developers sharing the same service principal will see each other's conversations
+- User authentication in dev mode uses the system username (e.g., your local machine username)
 
-> **Note**: PGPASSWORD is not needed - it's automatically managed via OAuth token exchange.
+For production deployments, user authentication works properly with individual Databricks user accounts.
+
+### Authentication Notes
+
+- **No password required**: Database connections use OAuth token exchange automatically
+- **Token management**: OAuth tokens are refreshed automatically before expiration
+- **Local development**: Uses your system username as the user identifier
+
+## Deployment
+
+This template can be deployed to Databricks Apps or other platforms. Database migrations run automatically at build time via the `npm run build` script.
