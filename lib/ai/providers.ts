@@ -30,14 +30,17 @@ async function getServerProvider() {
   }
 
   try {
-    const { getDatabricksServerProvider } = await import('./providers-server');
-    return await getDatabricksServerProvider();
+    const { getServerProviderAction } = await import('./server-provider-action');
+    return await getServerProviderAction();
   } catch (error) {
     console.error('Failed to load server provider:', error);
     // Fallback to client provider (though this shouldn't happen in practice)
     return clientProvider;
   }
 }
+
+// Cache for server provider to avoid recreating it
+let cachedServerProvider: any = null;
 
 // Export the main provider based on environment
 export const myProvider = isTestEnvironment
@@ -61,7 +64,10 @@ export const myProvider = isTestEnvironment
   ? clientProvider // Client-side: use dummy provider
   : { // Server-side: use smart provider that handles OAuth
       async languageModel(id: string) {
-        const serverProvider = await getServerProvider();
-        return await serverProvider.languageModel(id);
+        // Only call getServerProvider when actually needed (not during module init)
+        if (!cachedServerProvider) {
+          cachedServerProvider = await getServerProvider();
+        }
+        return await cachedServerProvider.languageModel(id);
       }
     };
