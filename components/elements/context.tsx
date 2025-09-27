@@ -285,7 +285,6 @@ export const Context = ({
           <span className="hidden font-medium text-muted-foreground">
             {displayPct}
           </span>
-          <ContextIcon percent={usedPercent} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" className="p-3 w-fit">

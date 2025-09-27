@@ -2,8 +2,6 @@
 
 import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
-import type { User } from 'next-auth';
-import { useSession } from 'next-auth/react';
 import { useTheme } from 'next-themes';
 
 import {
@@ -20,23 +18,21 @@ import {
 } from '@/components/ui/sidebar';
 import { useRouter } from 'next/navigation';
 import { LoaderIcon } from './icons';
-import { guestRegex } from '@/lib/constants';
+import { useDatabricksSession } from '@/lib/hooks/use-databricks-session';
 
 export function SidebarUserNav({
   user,
   preferredUsername
 }: {
-  user: User;
+  user: any;
   preferredUsername: string | null;
 }) {
   const router = useRouter();
-  const { data, status } = useSession();
+  const { data, status } = useDatabricksSession();
   const { setTheme, resolvedTheme } = useTheme();
 
-  const isGuest = guestRegex.test(data?.user?.email ?? '');
-
   // Use preferred username from Databricks Apps if available, otherwise fall back to existing logic
-  const displayName = preferredUsername || (isGuest ? 'Guest' : user?.email);
+  const displayName = preferredUsername || data?.user?.name || user?.email;
 
   return (
     <SidebarMenu>

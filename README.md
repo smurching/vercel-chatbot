@@ -1,70 +1,110 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chat SDK</h1>
+<a href="https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app">
+  <h1 align="center">Databricks Agent Chat Template</h1>
 </a>
 
 <p align="center">
-    Chat SDK is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+    A chat application template for interacting with Databricks Agent Serving endpoints, built with Next.js, Vercel AI SDK, and Databricks authentication.
 </p>
 
 <p align="center">
-  <a href="https://chat-sdk.dev"><strong>Read Docs</strong></a> ·
   <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
+  <a href="#running-locally"><strong>Running Locally</strong></a> ·
+  <a href="#deployment"><strong>Deployment</strong></a>
 </p>
 <br/>
 
-## Features
+This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) with Databricks-specific integrations for agents/LLMs, authentication, and conversation history persistence.
+For general features and additional documentation, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports xAI (default), OpenAI, Fireworks, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+## Key Databricks Features
 
-## Model Providers
+- **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent and Foundation Model serving endpoints
+- **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
+- **Persistent Chat History**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration.
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
+## Prerequisites
 
-### AI Gateway Authentication
+1. **Databricks workspace access**
+2. **Create a database instance**:
+   - [Create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
+3. **Set up Databricks authentication**
+   - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
+   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
+   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
 
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
+## Running Locally
 
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+### Setup Steps
 
-## Deploy Your Own
+1. **Clone and install**:
+   ```bash
+   git clone https://github.com/databricks/app-templates
+   cd e2e-chatbot-app
+   pnpm install
+   ```
 
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
+2. **Set up environment variables**:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET&envDescription=Generate%20a%20random%20secret%20to%20use%20for%20authentication&envLink=https%3A%2F%2Fgenerate-secret.vercel.app%2F32&project-name=my-awesome-chatbot&repository-name=my-awesome-chatbot&demo-title=AI%20Chatbot&demo-description=An%20Open-Source%20AI%20Chatbot%20Template%20Built%20With%20Next.js%20and%20the%20AI%20SDK%20by%20Vercel&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
+   Edit `.env.local` with your credentials
 
-## Running locally
+3. **Run the application**:
+   ```bash
+   npm run dev
+   ```
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+   Or using pnpm:
+   ```bash
+   pnpm dev
+   ```
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
+   The app starts on [localhost:3000](http://localhost:3000) and automatically:
+   - Creates the database schema (`ai_chatbot`)
+   - Runs all necessary migrations
+   - Sets up OAuth token management
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+## Deployment
+
+
+Set environment variables to specify the agent serving endpoint your app supports chatting with,
+and the database instance in which to persist chat history:  
 
 ```bash
-pnpm install
-pnpm dev
+export SERVING_ENDPOINT="your-serving-endpoint-name"
+export DATABASE_INSTANCE="your-database-instance-name"
 ```
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+Then, create the app:
+```bash
+databricks apps create --json '{
+  "name": "my-agent-chatbot",
+  "resources": [
+    {
+      "name": "serving-endpoint",
+      "serving_endpoint": {
+        "name": "'"$SERVING_ENDPOINT"'",
+        "permission": "CAN_QUERY"
+      }
+    },
+    {
+        "name": "database",
+        "database": {
+            "instance_name": "'"$DATABASE_INSTANCE"'",
+            "database_name": "databricks_postgres",
+            "permission": "CAN_CONNECT_AND_CREATE"
+         }
+     }
+  ]
+}'
+```
+
+Upload the source code to Databricks and deploy the app by running the following commands from the e2e-chatbot-app directory:
+
+```bash
+DATABRICKS_USERNAME=$(databricks current-user me | jq -r .userName)
+databricks sync . "/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
+databricks apps deploy my-agent-chatbot --source-code-path "/Workspace/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
+```

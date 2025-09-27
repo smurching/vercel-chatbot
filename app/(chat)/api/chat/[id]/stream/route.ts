@@ -1,4 +1,4 @@
-import { auth } from '@/app/(auth)/auth';
+import { getAuthSession } from '@/lib/auth/databricks-auth';
 import {
   getChatById,
   getMessagesByChatId,
@@ -38,7 +38,7 @@ function getStreamContext() {
 }
 
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: chatId } = await params;
@@ -54,7 +54,7 @@ export async function GET(
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth();
+  const session = await getAuthSession(request);
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:chat').toResponse();
