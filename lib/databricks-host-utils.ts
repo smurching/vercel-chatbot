@@ -10,7 +10,11 @@
  */
 export function normalizeHost(host: string | undefined): string {
   if (!host) {
-    throw new Error('DATABRICKS_HOST environment variable is required');
+    throw new Error(
+      'Databricks host configuration required. Please set either:\n' +
+      '- DATABRICKS_HOST environment variable\n' +
+      '- DATABRICKS_CONFIG_PROFILE environment variable (with "databricks auth login" configured)'
+    );
   }
 
   // Remove protocol and trailing slash if present

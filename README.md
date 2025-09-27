@@ -13,11 +13,12 @@
 </p>
 <br/>
 
-This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) with Databricks-specific integrations. For general features and additional documentation, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
+This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) with Databricks-specific integrations for agents/LLMs, authentication, and conversation history persistence.
+For general features and additional documentation, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
 
 ## Key Databricks Features
 
-- **Databricks Agent Integration**: Direct connection to Databricks Agent Serving endpoints
+- **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent and Foundation Model serving endpoints
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
 - **Persistent Chat History**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration.
 
@@ -27,15 +28,13 @@ This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-c
 
 1. **Databricks workspace** with OAuth M2M app configured
 2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) - **Required**
-3. **Databricks credentials** for querying serving endpoints and connecting to the database instance.
-
-**Note:** This application requires a database connection and no longer supports in-memory storage for simplified deployment and maintenance. 
+3. **Databricks credentials** for querying serving endpoints and connecting to the database instance. See [_](#authentication-notes)
 
 ### Setup Steps
 
 1. **Clone and install**:
    ```bash
-   git clone https://github.com/your-repo/databricks-agent-chat
+   git clone https://github.com/databricks/app-templates/
    cd databricks-agent-chat
    pnpm install
    ```
