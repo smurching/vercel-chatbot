@@ -19,7 +19,6 @@ async function main() {
   if (!isDatabaseAvailable()) {
     console.error('❌ Database configuration required!');
     console.error('❌ Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
-    console.error('❌ This application no longer supports in-memory storage.');
     process.exit(1);
   }
 

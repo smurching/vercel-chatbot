@@ -5,8 +5,8 @@
 /**
  * Normalize Databricks host URL to ensure consistent format
  * Supports both formats:
- * - https://e2-dogfood.staging.cloud.databricks.com/ (with protocol)
- * - e2-dogfood.staging.cloud.databricks.com (without protocol)
+ * - https://workspace.cloud.databricks.com/ (with protocol)
+ * - workspace.cloud.databricks.com (without protocol)
  */
 export function normalizeHost(host: string | undefined): string {
   if (!host) {

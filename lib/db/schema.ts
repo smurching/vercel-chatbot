@@ -1,6 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import {
-  pgTable,
   varchar,
   timestamp,
   json,
@@ -13,16 +12,9 @@ import {
   pgSchema,
 } from 'drizzle-orm/pg-core';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
-// Hard-coded schema name for consistency with drizzle-kit generate
+
 const schemaName = "ai_chatbot";
 console.log(`[Schema] Using database schema: ${schemaName}`);
-
-// For custom schemas, we'll handle the schema prefix in the table names directly
-// This avoids Drizzle's complex schema handling that can cause quoting issues
-// Note: hardcoded schema name "ai_chatbot" will never equal "public"
-
-// Create the schema object for custom schemas
-// const customSchema = schemaName !== 'public' ? pgSchema(schemaName) : null;
 const customSchema = pgSchema(schemaName);
 
 // Helper function to create table with proper schema handling

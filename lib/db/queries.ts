@@ -16,7 +16,6 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import {
-  user,
   chat,
   type User,
   document,
@@ -29,11 +28,9 @@ import {
   stream,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
-import { generateUUID } from '../utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
-import { getDb } from './connection-pool';
 import { isDatabaseAvailable } from './connection';
 import { getAuthMethod, getAuthMethodDescription } from '@/lib/auth/databricks-auth';
 
@@ -43,8 +40,6 @@ export type { User } from './schema';
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
 // https://authjs.dev/reference/adapter/drizzle
-
-// Require database configuration - no fallback to in-memory storage
 let db: ReturnType<typeof drizzle>;
 
 if (!isDatabaseAvailable()) {
@@ -69,9 +64,9 @@ async function ensureDb() {
     const authDescription = getAuthMethodDescription();
     console.log(`[ensureDb] Getting ${authDescription} database connection...`);
     try {
-      // Import getDbWithRetry for better error handling
-      const { getDbWithRetry } = await import('./connection-pool');
-      const database = await getDbWithRetry();
+      // Import getDb for database connection
+      const { getDb } = await import('./connection-pool');
+      const database = await getDb();
       console.log(`[ensureDb] ${authDescription} db connection obtained successfully`);
       return database;
     } catch (error) {
@@ -87,21 +82,6 @@ async function ensureDb() {
   }
   return db;
 }
-
-export async function getUser(email: string): Promise<Array<User>> {
-  try {
-    return await (await ensureDb()).select().from(user).where(eq(user.email, email));
-  } catch (error) {
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to get user by email',
-    );
-  }
-}
-
-// createUser function removed - users are now created automatically via getOrCreateUserFromHeaders
-
-// createGuestUser function removed - no guest users in Databricks-only auth mode
 
 export async function getUserFromHeaders(request: Request): Promise<User> {
   // Check for Databricks Apps headers first

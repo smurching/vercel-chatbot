@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 import { CheckCircleFillIcon, ChevronDownIcon } from './icons';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import type { AuthSession } from '@/lib/databricks-auth';
+import type { AuthSession } from '@/lib/auth/databricks-auth';
 
 export function ModelSelector({
   session,

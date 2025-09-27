@@ -10,7 +10,7 @@ import { PlusIcon, VercelIcon } from './icons';
 import { useSidebar } from './ui/sidebar';
 import { memo } from 'react';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
-import type { AuthSession } from '@/lib/databricks-auth';
+import type { AuthSession } from '@/lib/auth/databricks-auth';
 
 function PureChatHeader({
   chatId,

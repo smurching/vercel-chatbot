@@ -1,6 +1,6 @@
 'use client';
 
-import type { AuthUser } from '@/lib/databricks-auth';
+import type { AuthUser } from '@/lib/auth/databricks-auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';

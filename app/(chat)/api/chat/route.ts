@@ -6,7 +6,7 @@ import {
   stepCountIs,
   streamText,
 } from 'ai';
-import { getAuthSession, type UserType } from '@/lib/databricks-auth';
+import { getAuthSession, type UserType } from '@/lib/auth/databricks-auth';
 import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,

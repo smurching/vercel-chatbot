@@ -1,4 +1,4 @@
-import { getAuthSession } from '@/lib/databricks-auth';
+import { getAuthSession } from '@/lib/auth/databricks-auth';
 import {
   getChatById,
   getMessagesByChatId,

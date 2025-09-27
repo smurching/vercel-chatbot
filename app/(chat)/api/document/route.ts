@@ -1,4 +1,4 @@
-import { getAuthSession } from '@/lib/databricks-auth';
+import { getAuthSession } from '@/lib/auth/databricks-auth';
 import type { ArtifactKind } from '@/components/artifact';
 import {
   deleteDocumentsByIdAfterTimestamp,

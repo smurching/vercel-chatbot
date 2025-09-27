@@ -74,23 +74,3 @@ export async function getDb() {
 
   return drizzle(sql, { schema });
 }
-
-// Export a wrapper that handles token expiry with retry
-export async function getDbWithRetry() {
-  try {
-    return await getDb();
-  } catch (error) {
-    if (isTokenExpiryError(error)) {
-      console.log('[DB Pool] Token expiry detected, forcing connection refresh');
-      // Force connection refresh by clearing the current connection
-      if (sqlConnection) {
-        await sqlConnection.end();
-        sqlConnection = null;
-        currentToken = null;
-      }
-      // Retry with fresh connection
-      return await getDb();
-    }
-    throw error;
-  }
-}

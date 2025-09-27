@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ClientSession } from '@/lib/databricks-auth';
+import type { ClientSession } from '@/lib/auth/databricks-auth';
 
 export function useDatabricksSession() {
   const [session, setSession] = useState<ClientSession | null>(null);

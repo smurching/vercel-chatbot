@@ -2,7 +2,7 @@ import { cookies, headers } from 'next/headers';
 
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { getAuthSessionFromHeaders } from '@/lib/databricks-auth';
+import { getAuthSessionFromHeaders } from '@/lib/auth/databricks-auth';
 import Script from 'next/script';
 import { DataStreamProvider } from '@/components/data-stream-provider';
 

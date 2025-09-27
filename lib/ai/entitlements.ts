@@ -1,4 +1,4 @@
-import type { UserType } from '@/lib/databricks-auth';
+import type { UserType } from '@/lib/auth/databricks-auth';
 import type { ChatModel } from './models';
 
 interface Entitlements {

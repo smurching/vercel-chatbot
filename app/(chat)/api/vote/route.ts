@@ -1,4 +1,4 @@
-import { getAuthSession } from '@/lib/databricks-auth';
+import { getAuthSession } from '@/lib/auth/databricks-auth';
 import { getChatById, getVotesByChatId, voteMessage } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 

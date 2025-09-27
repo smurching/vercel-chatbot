@@ -1,4 +1,4 @@
-import { getAuthSession, type ClientSession } from '@/lib/databricks-auth';
+import { getAuthSession, type ClientSession } from '@/lib/auth/databricks-auth';
 
 export async function GET(request: Request) {
   const session = await getAuthSession(request);
