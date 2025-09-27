@@ -22,12 +22,18 @@ For general features and additional documentation, see the [original repository]
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
 - **Persistent Chat History**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration.
 
+## Prerequisites
+
+1. **Databricks workspace access**
+2. **Create a database instance**:
+   - [Create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
+3. **Set up Databricks authentication**
+   - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
+   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
+   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
+
+
 ## Running Locally
-
-### Prerequisites
-
-1. **Databricks workspace**
-2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
 
 ### Setup Steps
 
@@ -38,21 +44,14 @@ For general features and additional documentation, see the [original repository]
    pnpm install
    ```
 
-2. **Configure Databricks Authentication**:
-
-   - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
-   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
-   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
-
-
-3. **Set up environment variables**:
+2. **Set up environment variables**:
    ```bash
    cp .env.example .env.local
    ```
 
    Edit `.env.local` with your credentials
 
-4. **Run the application**:
+3. **Run the application**:
    ```bash
    npm run dev
    ```
@@ -69,8 +68,16 @@ For general features and additional documentation, see the [original repository]
 
 ## Deployment
 
-First, create the app:
 
+Set environment variables to specify the agent serving endpoint your app supports chatting with,
+and the database instance in which to persist chat history:  
+
+```bash
+export SERVING_ENDPOINT="your-serving-endpoint-name"
+export DATABASE_INSTANCE="your-database-instance-name"
+```
+
+Then, create the app:
 ```bash
 databricks apps create --json '{
   "name": "my-agent-chatbot",
@@ -85,7 +92,7 @@ databricks apps create --json '{
     {
         "name": "database",
         "database": {
-            "instance_name": "smurching-postgres",
+            "instance_name": "'"$DATABASE_INSTANCE"'",
             "database_name": "databricks_postgres",
             "permission": "CAN_CONNECT_AND_CREATE"
          }
@@ -94,7 +101,10 @@ databricks apps create --json '{
 }'
 ```
 
-To deploy to Databricks apps, make sure you've configured Databricks authentication as described in [_](#setup-steps), then
-run the following to sync your code to your Databricks workspace:
+Upload the source code to Databricks and deploy the app by running the following commands from the e2e-chatbot-app directory:
 
-
+```bash
+DATABRICKS_USERNAME=$(databricks current-user me | jq -r .userName)
+databricks sync . "/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
+databricks apps deploy my-agent-chatbot --source-code-path "/Workspace/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
+```
