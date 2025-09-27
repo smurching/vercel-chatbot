@@ -33,7 +33,7 @@ import { generateUUID } from '../utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
-import { getDb } from './oauth-postgres';
+import { getDb } from './connection-pool';
 import { isDatabaseAvailable } from './connection';
 import { getAuthMethod, getAuthMethodDescription } from '@/lib/auth/databricks-auth';
 
@@ -70,7 +70,7 @@ async function ensureDb() {
     console.log(`[ensureDb] Getting ${authDescription} database connection...`);
     try {
       // Import getDbWithRetry for better error handling
-      const { getDbWithRetry } = await import('./oauth-postgres');
+      const { getDbWithRetry } = await import('./connection-pool');
       const database = await getDbWithRetry();
       console.log(`[ensureDb] ${authDescription} db connection obtained successfully`);
       return database;

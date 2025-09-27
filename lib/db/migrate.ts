@@ -1,6 +1,6 @@
 import { config } from 'dotenv';
 import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection';
-import { getDatabricksToken } from '@/lib/auth/databricks-auth';
+import { getDatabricksToken, getDatabaseUsername } from '@/lib/auth/databricks-auth';
 import { spawn } from 'child_process';
 import postgres from 'postgres';
 import { join } from 'path';
@@ -48,19 +48,22 @@ async function main() {
     // Use drizzle-kit push to create tables
     console.log('🔄 Using drizzle-kit push to update schema...');
 
-    // Get OAuth token for password
+    // Get OAuth token and username for database authentication
     const env = {...process.env};
     if (!process.env.POSTGRES_URL) {
-      console.log('🔐 Using OAuth token for database authentication');
+      console.log('🔐 Using OAuth token and username for database authentication');
       try {
         const token = await getDatabricksToken();
+        const username = await getDatabaseUsername();
         env['PGPASSWORD'] = token;
+        env['PGUSER'] = username;
+        console.log(`🔐 Setting PGUSER to: ${username}`);
       } catch (tokenError) {
         const errorMessage = tokenError instanceof Error ? tokenError.message : String(tokenError);
-        throw new Error(`Failed to get OAuth token: ${errorMessage}`);
+        throw new Error(`Failed to get OAuth credentials: ${errorMessage}`);
       }
     } else {
-      console.log('🔐 Using password from POSTGRES_URL for database authentication');
+      console.log('🔐 Using credentials from POSTGRES_URL for database authentication');
     }
 
     // Find the drizzle-kit binary path

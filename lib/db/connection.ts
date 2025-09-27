@@ -1,7 +1,7 @@
 /**
  * Database connection utilities using centralized Databricks authentication
  */
-import { getDatabricksToken, getAuthMethodDescription, isAuthAvailable } from '@/lib/auth/databricks-auth';
+import { getDatabricksToken, getAuthMethodDescription, isAuthAvailable, getDatabaseUsername } from '@/lib/auth/databricks-auth';
 
 
 /**
@@ -25,21 +25,21 @@ export async function getConnectionUrl(instanceName?: string): Promise<string> {
   }
 
   // Option 2: Build URL from individual PG* variables with Databricks authentication
-  const pgUser = process.env.PGUSER;
   const pgHost = process.env.PGHOST;
   const pgPort = process.env.PGPORT || '5432';
   const pgDatabase = process.env.PGDATABASE;
   const pgSSLMode = process.env.PGSSLMODE || 'require';
 
-  if (!pgUser || !pgHost || !pgDatabase) {
-    throw new Error('Either POSTGRES_URL or PGUSER, PGHOST, and PGDATABASE must be set');
+  if (!pgHost || !pgDatabase) {
+    throw new Error('Either POSTGRES_URL or PGHOST and PGDATABASE must be set');
   }
 
-  // Get authentication token using centralized auth module
+  // Get authentication token and username using centralized auth module
   const token = await getDatabricksToken();
-  console.log(`[Connection] Using ${getAuthMethodDescription()} authentication`);
+  const username = await getDatabaseUsername();
+  console.log(`[Connection] Using ${getAuthMethodDescription()} authentication with user: ${username}`);
 
-  const encodedUser = encodeURIComponent(pgUser);
+  const encodedUser = encodeURIComponent(username);
   const encodedPassword = encodeURIComponent(token);
 
   return `postgresql://${encodedUser}:${encodedPassword}@${pgHost}:${pgPort}/${pgDatabase}?sslmode=${pgSSLMode}`;

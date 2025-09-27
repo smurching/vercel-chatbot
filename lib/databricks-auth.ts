@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getUserFromHeaders, type User } from '@/lib/db/queries';
 import { getHostUrl, getHostDomain } from '@/lib/databricks-host-utils';
+import { getDatabricksToken } from '@/lib/auth/databricks-auth';
 
 export type UserType = 'regular'; // Simplified - no more guest users
 
@@ -33,43 +34,12 @@ async function getDatabricksCurrentUser(): Promise<any> {
 
   console.log('[getDatabricksCurrentUser] Cache miss - fetching from SCIM API');
 
-  const databricksToken = process.env.DATABRICKS_TOKEN; // Personal access token for local dev
-  const databricksClientId = process.env.DATABRICKS_CLIENT_ID;
-  const databricksClientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-
   // Get normalized host (handles both formats: with/without https://)
-  const normalizedHost = getHostDomain();
   const hostUrl = getHostUrl();
 
-  let authHeader: string;
-
-  // Use OAuth if client credentials are available, otherwise use PAT
-  if (databricksClientId && databricksClientSecret) {
-    console.log('[getDatabricksCurrentUser] Using OAuth for SCIM API');
-
-    // Get OAuth token
-    const tokenUrl = `${hostUrl}/oidc/v1/token`;
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${databricksClientId}:${databricksClientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials&scope=all-apis',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get OAuth token: ${response.status}`);
-    }
-
-    const data = await response.json();
-    authHeader = `Bearer ${data.access_token}`;
-  } else if (databricksToken) {
-    console.log('[getDatabricksCurrentUser] Using personal access token for SCIM API');
-    authHeader = `Bearer ${databricksToken}`;
-  } else {
-    throw new Error('Either DATABRICKS_TOKEN or DATABRICKS_CLIENT_ID/SECRET must be set');
-  }
+  // Use centralized authentication to get token
+  const token = await getDatabricksToken();
+  const authHeader = `Bearer ${token}`;
 
   // Call SCIM API to get current user
   const scimUrl = `${hostUrl}/api/2.0/preview/scim/v2/Me`;

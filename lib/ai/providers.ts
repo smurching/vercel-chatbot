@@ -445,16 +445,20 @@ class OAuthAwareProvider implements SmartProvider {
 // Create the appropriate provider based on authentication method
 let databricksProvider: SmartProvider;
 
-if (
-  process.env.DATABRICKS_CLIENT_ID &&
-  process.env.DATABRICKS_CLIENT_SECRET &&
-  typeof window === 'undefined'
-) {
-  // OAuth path - use the smart provider
-  databricksProvider = new OAuthAwareProvider();
+// Check if server-side and has authentication available
+if (typeof window === 'undefined') {
+  // Server-side: check if we have authentication available using centralized auth
+  const { isAuthAvailable } = await import('@/lib/auth/databricks-auth');
+
+  if (isAuthAvailable()) {
+    // Use the smart provider for any authenticated server-side usage (OAuth or CLI)
+    databricksProvider = new OAuthAwareProvider();
+  } else {
+    throw new Error('No Databricks authentication available on server side');
+  }
 } else {
-  // PAT auth or frontend - create models immediately
-  const databricksModel = databricks.responses(servingEndpoint);
+  // Client-side - create models immediately (this shouldn't actually be called with auth)
+  const databricksModel = databricks.chat(servingEndpoint);
   const databricksChatModel = databricks.chat(databricksChatEndpoint);
 
   databricksProvider = customProvider({
