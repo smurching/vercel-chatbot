@@ -26,34 +26,24 @@ For general features and additional documentation, see the [original repository]
 
 ### Prerequisites
 
-1. **Databricks workspace** with OAuth M2M app configured
-2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) - **Required**
-3. **Databricks credentials** for querying serving endpoints and connecting to the database instance. See [_](#authentication-notes)
+1. **Databricks workspace**
+2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
+3. **Databricks credentials (for local development)**: [set up Databricks credentials](#running-locally) to enable querying serving endpoints and connecting to the database instance. 
 
 ### Setup Steps
 
 1. **Clone and install**:
    ```bash
-   git clone https://github.com/databricks/app-templates/
-   cd databricks-agent-chat
+   git clone https://github.com/databricks/app-templates
+   cd e2e-chatbot-app
    pnpm install
    ```
 
 2. **Configure Databricks Authentication**:
 
-   Choose one of two authentication methods:
-
-   **Option A: CLI OAuth U2M (Recommended for individual users)**
-
    - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
-   - Run `databricks auth login` to authenticate with your workspace
-   - This uses OAuth user-to-machine (U2M) authentication
-   - See [Databricks OAuth U2M guide](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html) for detailed steps
-
-   **Option B: Service Principal OAuth (Recommended for production)**
-
-   - [Create a service principal](https://docs.databricks.com/aws/en/admin/users-groups/manage-service-principals?language=Workspace%C2%A0admin%C2%A0settings#-add-service-principals-to-your-account) in your Databricks workspace
-   - See [Databricks OAuth M2M guide](https://docs.databricks.com/en/dev-tools/auth/oauth-m2m.html) for detailed steps
+   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
+   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
 
 
 3. **Set up environment variables**:
@@ -61,46 +51,7 @@ For general features and additional documentation, see the [original repository]
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` with your credentials:
-
-   **For CLI OAuth U2M authentication:**
-   ```env
-   # Optional: Databricks profile (uses default profile if not set)
-   DATABRICKS_CONFIG_PROFILE=your-profile-name
-
-   # Or alternatively, specify host directly:
-   # DATABRICKS_HOST=your-workspace.cloud.databricks.com
-
-   # Required: PostgreSQL database
-   PGHOST=your-postgres-host
-   PGDATABASE=your-database-name
-   PGUSER=your-username
-   PGPORT=5432
-
-   # Optional: Additional features
-   AI_GATEWAY_API_KEY=your-api-key  # For non-Vercel deployments
-   BLOB_READ_WRITE_TOKEN=****       # For file uploads
-   REDIS_URL=****                   # For resumable streams
-   ```
-
-   **For Service Principal OAuth authentication:**
-   ```env
-   # Required: Databricks workspace and OAuth
-   DATABRICKS_HOST=your-workspace.cloud.databricks.com
-   DATABRICKS_CLIENT_ID=your-oauth-client-id
-   DATABRICKS_CLIENT_SECRET=your-oauth-client-secret
-
-   # Required: PostgreSQL database
-   PGHOST=your-postgres-host
-   PGDATABASE=your-database-name
-   PGUSER=your-username
-   PGPORT=5432
-
-   # Optional: Additional features
-   AI_GATEWAY_API_KEY=your-api-key  # For non-Vercel deployments
-   BLOB_READ_WRITE_TOKEN=****       # For file uploads
-   REDIS_URL=****                   # For resumable streams
-   ```
+   Edit `.env.local` with your credentials
 
 4. **Run the application**:
    ```bash
@@ -116,16 +67,6 @@ For general features and additional documentation, see the [original repository]
    - Creates the database schema (`ai_chatbot`)
    - Runs all necessary migrations
    - Sets up OAuth token management
-
-### Development Mode Caveats
-
-**Important**: In development mode (`npm run dev`), conversations are stored on behalf of the **service principal**, not individual users. This means:
-
-- All chat history is associated with the service principal account
-- Multiple developers sharing the same service principal will see each other's conversations
-- User authentication in dev mode uses the system username (e.g., your local machine username)
-
-For production deployments, user authentication works properly with individual Databricks user accounts.
 
 ### Authentication Notes
 

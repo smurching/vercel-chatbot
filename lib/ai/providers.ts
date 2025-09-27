@@ -30,8 +30,8 @@ async function getServerProvider() {
   }
 
   try {
-    const { databricksServerProvider } = await import('./providers-server');
-    return databricksServerProvider;
+    const { getDatabricksServerProvider } = await import('./providers-server');
+    return await getDatabricksServerProvider();
   } catch (error) {
     console.error('Failed to load server provider:', error);
     // Fallback to client provider (though this shouldn't happen in practice)
