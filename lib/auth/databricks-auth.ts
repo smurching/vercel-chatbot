@@ -129,6 +129,17 @@ export function getAuthMethodDescription(): string {
   }
 }
 
+/**
+ * Get the cached CLI host URL
+ * Returns null if no CLI host is cached or if cache has expired
+ */
+export function getCachedCliHost(): string | null {
+  if (cliHostCache && Date.now() < cliHostCacheTime + CLI_HOST_CACHE_DURATION) {
+    return cliHostCache.startsWith('https://') ? cliHostCache : `https://${cliHostCache}`;
+  }
+  return null;
+}
+
 // ============================================================================
 // OAuth Authentication (Service Principal)
 // ============================================================================
