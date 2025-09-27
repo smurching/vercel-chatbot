@@ -19,7 +19,7 @@ export default defineConfig({
   dialect: 'postgresql',
   dbCredentials: {
     host: process.env.PGHOST || 'placeholder',
-    port: parseInt(process.env.PGPORT || '5432'),
+    port: Number.parseInt(process.env.PGPORT || '5432'),
     user: process.env.PGUSER,
     password: process.env.PGPASSWORD, // Will be set by migrate.ts script
     database: process.env.PGDATABASE || 'placeholder',

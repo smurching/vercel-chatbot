@@ -3,7 +3,6 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type LanguageModelUsage,
-  stepCountIs,
   streamText,
 } from 'ai';
 import { getAuthSession, type UserType } from '@/lib/auth/databricks-auth';

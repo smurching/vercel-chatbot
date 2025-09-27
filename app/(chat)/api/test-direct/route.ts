@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     console.log('Direct test endpoint received:', JSON.stringify(body, null, 2));
 
     // Accept both standard AI SDK format and responses API format
-    let messages = body.messages || body.input || [];
+    const messages = body.messages || body.input || [];
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: 'No messages provided' }, { status: 400 });

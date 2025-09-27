@@ -3,7 +3,7 @@
 import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
 import { useParams, useRouter } from 'next/navigation';
 import type { AuthUser } from '@/lib/auth/databricks-auth';
-import { useState, useEffect } from 'react';
+import { useState, } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {

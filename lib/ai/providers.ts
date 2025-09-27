@@ -1,7 +1,5 @@
 import {
   customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
 } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';

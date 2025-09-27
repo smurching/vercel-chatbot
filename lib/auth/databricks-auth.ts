@@ -6,7 +6,7 @@ import 'server-only';
  * Also handles user session management and SCIM API interactions
  */
 
-import { getUserFromHeaders, type User } from '@/lib/db/queries';
+import { getUserFromHeaders, } from '@/lib/db/queries';
 import { getHostUrl, getHostDomain } from '@/lib/databricks-host-utils';
 
 // ============================================================================
@@ -288,7 +288,7 @@ export async function getDatabricksCliToken(): Promise<string> {
     return cliToken;
   }
 
-  const { spawn } = await import('child_process');
+  const { spawn } = await import('node:child_process');
 
   const { spawnWithOutput } = await import('@/lib/utils/subprocess');
 
@@ -344,8 +344,7 @@ export async function getDatabricksCliToken(): Promise<string> {
       throw error;
     }
     throw new Error(
-      `Failed to execute Databricks CLI: ${error}\n` +
-      'Make sure the Databricks CLI is installed and in your PATH.'
+      `Failed to execute Databricks CLI: ${error}\nMake sure the Databricks CLI is installed and in your PATH.`
     );
   }
 }
@@ -385,13 +384,14 @@ export async function getDatabaseUsername(): Promise<string> {
   const method = getAuthMethod();
 
   switch (method) {
-    case 'oauth':
+    case 'oauth': {
       // For OAuth service principal, use the configured PGUSER
       const pgUser = process.env.PGUSER;
       if (!pgUser) {
         throw new Error('PGUSER environment variable must be set for OAuth authentication');
       }
       return pgUser;
+    }
 
     case 'cli':
       // For CLI auth, use the current user's identity

@@ -1,11 +1,9 @@
 import { config } from 'dotenv';
-import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection';
-import { getDatabricksToken, getDatabaseUsername } from '@/lib/auth/databricks-auth';
+import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection-migrate';
+import { getDatabricksToken, getDatabaseUsername } from '@/lib/auth/databricks-auth-node';
 import { spawnWithInherit } from '@/lib/utils/subprocess';
 import postgres from 'postgres';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { join } from 'node:path';
 
 // Load environment variables
 config({
@@ -54,8 +52,8 @@ async function main() {
       try {
         const token = await getDatabricksToken();
         const username = await getDatabaseUsername();
-        env['PGPASSWORD'] = token;
-        env['PGUSER'] = username;
+        env.PGPASSWORD = token;
+        env.PGUSER = username;
         console.log(`🔐 Setting PGUSER to: ${username}`);
       } catch (tokenError) {
         const errorMessage = tokenError instanceof Error ? tokenError.message : String(tokenError);

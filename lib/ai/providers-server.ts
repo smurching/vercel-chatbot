@@ -1,5 +1,4 @@
 import {
-  customProvider,
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from 'ai';
@@ -18,6 +17,14 @@ import {
 import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
 import { applyDatabricksRawChunkStreamPartTransform } from '../databricks-raw-chunk-transformer';
 
+// Import auth module directly
+import {
+  getDatabricksToken as getAuthToken,
+  getAuthMethod,
+  getDatabricksUserIdentity,
+  getCachedCliHost
+} from '@/lib/auth/databricks-auth';
+
 // Use centralized authentication - only on server side
 async function getDatabricksToken(): Promise<string> {
   // First, check if we have a PAT token
@@ -27,9 +34,8 @@ async function getDatabricksToken(): Promise<string> {
   }
 
   // Otherwise, use centralized authentication module
-  const { getDatabricksToken: getSharedToken } = await import('@/lib/auth/databricks-auth');
   try {
-    const token = await getSharedToken();
+    const token = await getAuthToken();
     if (!token) {
       throw new Error('Failed to get Databricks token');
     }
@@ -51,7 +57,6 @@ async function getWorkspaceHostname(): Promise<string> {
 
   try {
     // Use the same approach as getDatabricksCurrentUser to get hostname
-    const { getAuthMethod, getDatabricksUserIdentity, getCachedCliHost } = await import('@/lib/auth/databricks-auth');
     const authMethod = getAuthMethod();
 
     if (authMethod === 'cli') {
