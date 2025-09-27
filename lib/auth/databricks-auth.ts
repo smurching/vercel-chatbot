@@ -218,7 +218,7 @@ export async function getDatabricksUserIdentity(): Promise<string> {
     return cliUserIdentity;
   }
 
-  const { spawn } = await import('child_process');
+  const { spawnWithOutput } = await import('@/lib/utils/subprocess');
 
   // Build CLI command arguments for getting user identity
   const args = ['auth', 'describe', '--output', 'json'];
@@ -242,64 +242,41 @@ export async function getDatabricksUserIdentity(): Promise<string> {
     }
   }
 
-  return new Promise((resolve, reject) => {
-    const cli = spawn('databricks', args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
+  try {
+    const stdout = await spawnWithOutput('databricks', args, {
+      errorMessagePrefix: 'Databricks CLI auth describe failed'
     });
 
-    let stdout = '';
-    let stderr = '';
+    const authData = JSON.parse(stdout);
+    const username = authData.username;
+    const host = authData.details?.host;
 
-    cli.stdout?.on('data', (data) => {
-      stdout += data.toString();
-    });
+    if (!username) {
+      throw new Error('No username found in CLI auth describe output');
+    }
 
-    cli.stderr?.on('data', (data) => {
-      stderr += data.toString();
-    });
+    // Cache user identity
+    cliUserIdentity = username;
+    cliUserIdentityExpiresAt = Date.now() + USER_IDENTITY_CACHE_DURATION;
 
-    cli.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(
-          `Databricks CLI auth describe failed (exit code ${code}): ${stderr.trim()}`
-        ));
-        return;
-      }
+    // Cache host information if available
+    if (host) {
+      cliHostCache = host;
+      cliHostCacheTime = Date.now();
+      console.log(`[CLI Auth] Host cached: ${host}`);
+    }
 
-      try {
-        const authData = JSON.parse(stdout.trim());
-        const username = authData.username;
-        const host = authData.details?.host;
-
-        if (!username) {
-          reject(new Error('No username found in CLI auth describe output'));
-          return;
-        }
-
-        // Cache user identity
-        cliUserIdentity = username;
-        cliUserIdentityExpiresAt = Date.now() + USER_IDENTITY_CACHE_DURATION;
-
-        // Cache host information if available
-        if (host) {
-          cliHostCache = host;
-          cliHostCacheTime = Date.now();
-          console.log(`[CLI Auth] Host cached: ${host}`);
-        }
-
-        console.log(`[CLI Auth] User identity acquired: ${username}`);
-        resolve(username);
-      } catch (parseError) {
-        reject(new Error(`Failed to parse CLI auth describe output: ${parseError}\nOutput: ${stdout}`));
-      }
-    });
-
-    cli.on('error', (error) => {
-      reject(new Error(
-        `Failed to execute Databricks CLI auth describe: ${error.message}`
-      ));
-    });
-  });
+    console.log(`[CLI Auth] User identity acquired: ${username}`);
+    return username;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Failed to parse')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.includes('exit code')) {
+      throw error;
+    }
+    throw new Error(`Failed to execute Databricks CLI auth describe: ${error}`);
+  }
 }
 
 /**
@@ -312,6 +289,8 @@ export async function getDatabricksCliToken(): Promise<string> {
   }
 
   const { spawn } = await import('child_process');
+
+  const { spawnWithOutput } = await import('@/lib/utils/subprocess');
 
   // Build CLI command arguments
   const args = ['auth', 'token'];
@@ -335,62 +314,40 @@ export async function getDatabricksCliToken(): Promise<string> {
     }
   }
 
-  return new Promise((resolve, reject) => {
-    const cli = spawn('databricks', args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
+  try {
+    const stdout = await spawnWithOutput('databricks', args, {
+      errorMessagePrefix: 'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.'
     });
 
-    let stdout = '';
-    let stderr = '';
+    const tokenData = JSON.parse(stdout);
+    const accessToken = tokenData.access_token;
+    const expiresIn = tokenData.expires_in || 3600; // Default to 1 hour
 
-    cli.stdout?.on('data', (data) => {
-      stdout += data.toString();
-    });
+    if (!accessToken) {
+      throw new Error('No access_token found in CLI output');
+    }
 
-    cli.stderr?.on('data', (data) => {
-      stderr += data.toString();
-    });
+    cliToken = accessToken;
+    // Set expiration with a 5-minute buffer to avoid using near-expired tokens
+    cliTokenExpiresAt = Date.now() + (expiresIn - 300) * 1000;
 
-    cli.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(
-          `Databricks CLI auth token failed (exit code ${code}): ${stderr.trim()}\n` +
-          'Make sure you have run "databricks auth login" first.'
-        ));
-        return;
-      }
-
-      try {
-        const tokenData = JSON.parse(stdout.trim());
-        const accessToken = tokenData.access_token;
-        const expiresIn = tokenData.expires_in || 3600; // Default to 1 hour
-
-        if (!accessToken) {
-          reject(new Error('No access_token found in CLI output'));
-          return;
-        }
-
-        cliToken = accessToken;
-        // Set expiration with a 5-minute buffer to avoid using near-expired tokens
-        cliTokenExpiresAt = Date.now() + (expiresIn - 300) * 1000;
-
-        console.log(
-          `[CLI Auth] Token acquired, expires in ${expiresIn}s, ` +
-          `will refresh in ${expiresIn - 300}s`
-        );
-        resolve(accessToken);
-      } catch (parseError) {
-        reject(new Error(`Failed to parse CLI output: ${parseError}\nOutput: ${stdout}`));
-      }
-    });
-
-    cli.on('error', (error) => {
-      reject(new Error(
-        `Failed to execute Databricks CLI: ${error.message}\n` +
-        'Make sure the Databricks CLI is installed and in your PATH.'
-      ));
-    });
-  });
+    console.log(
+      `[CLI Auth] Token acquired, expires in ${expiresIn}s, ` +
+      `will refresh in ${expiresIn - 300}s`
+    );
+    return accessToken;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Failed to parse')) {
+      throw error;
+    }
+    if (error instanceof Error && error.message.includes('exit code')) {
+      throw error;
+    }
+    throw new Error(
+      `Failed to execute Databricks CLI: ${error}\n` +
+      'Make sure the Databricks CLI is installed and in your PATH.'
+    );
+  }
 }
 
 // ============================================================================

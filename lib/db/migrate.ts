@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection';
 import { getDatabricksToken, getDatabaseUsername } from '@/lib/auth/databricks-auth';
-import { spawn } from 'child_process';
+import { spawnWithInherit } from '@/lib/utils/subprocess';
 import postgres from 'postgres';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -69,21 +69,11 @@ async function main() {
     const projectRoot = join(__dirname, '..', '..');
     const drizzleBin = join(projectRoot, 'node_modules', '.bin', 'drizzle-kit');
 
-    const child = spawn(drizzleBin, ['push', '--force'], {
+    await spawnWithInherit(drizzleBin, ['push', '--force'], {
       env: env,
-      stdio: ['pipe', 'inherit', 'inherit']
+      errorMessagePrefix: 'drizzle-kit push failed'
     });
-
-    await new Promise((resolve, reject) => {
-      child.on('close', (code) => {
-        if (code === 0) {
-          console.log('✅ drizzle-kit push completed successfully');
-          resolve(code);
-        } else {
-          reject(new Error(`drizzle-kit push exited with code ${code}`));
-        }
-      });
-    });
+    console.log('✅ drizzle-kit push completed successfully');
     console.log('✅ Database migration completed successfully');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
