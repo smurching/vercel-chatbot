@@ -28,7 +28,6 @@ For general features and additional documentation, see the [original repository]
 
 1. **Databricks workspace**
 2. **PostgreSQL database**: [create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
-3. **Databricks credentials (for local development)**: [set up Databricks credentials](#running-locally) to enable querying serving endpoints and connecting to the database instance. 
 
 ### Setup Steps
 
@@ -68,13 +67,34 @@ For general features and additional documentation, see the [original repository]
    - Runs all necessary migrations
    - Sets up OAuth token management
 
-### Authentication Notes
-
-Out of the box, this app supports a subset of Databricks unified auth. In particular, the following auth mechanisms are supported:
-- **OAuth M2M**: you can set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` to authenticate using service principal credentials to the database instance and serving endpoints
-- **PAT**: you can use `DATABRICKS_HOST` and `DATABRICKS_TOKEN` to authenticate using a personal access token
-
-
 ## Deployment
 
-This template can be deployed to Databricks Apps or other platforms. Database migrations run automatically at build time via the `npm run build` script.
+First, create the app:
+
+```bash
+databricks apps create --json '{
+  "name": "my-agent-chatbot",
+  "resources": [
+    {
+      "name": "serving-endpoint",
+      "serving_endpoint": {
+        "name": "'"$SERVING_ENDPOINT"'",
+        "permission": "CAN_QUERY"
+      }
+    },
+    {
+        "name": "database",
+        "database": {
+            "instance_name": "smurching-postgres",
+            "database_name": "databricks_postgres",
+            "permission": "CAN_CONNECT_AND_CREATE"
+         }
+     }
+  ]
+}'
+```
+
+To deploy to Databricks apps, make sure you've configured Databricks authentication as described in [_](#setup-steps), then
+run the following to sync your code to your Databricks workspace:
+
+
