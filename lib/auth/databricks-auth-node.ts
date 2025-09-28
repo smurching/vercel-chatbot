@@ -4,6 +4,7 @@
  */
 
 import { spawnWithOutput } from '@/lib/utils/subprocess';
+import { getHostUrl } from "../databricks-host-utils";
 
 export function getAuthMethodDescription(): string {
   const method = getAuthMethod();
@@ -62,7 +63,7 @@ export async function getDatabaseUsername(): Promise<string> {
 async function getDatabricksOAuthToken(): Promise<string> {
   const clientId = process.env.DATABRICKS_CLIENT_ID;
   const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const host = process.env.DATABRICKS_HOST;
+  const host = getHostUrl();
 
   if (!clientId || !clientSecret || !host) {
     throw new Error(

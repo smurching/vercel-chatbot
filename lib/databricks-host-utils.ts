@@ -8,7 +8,7 @@
  * - https://workspace.cloud.databricks.com/ (with protocol)
  * - workspace.cloud.databricks.com (without protocol)
  */
-export function normalizeHost(host: string | undefined): string {
+function normalizeHost(host: string | undefined): string {
   if (!host) {
     throw new Error(
       'Databricks host configuration required. Please set either:\n' +
