@@ -5,6 +5,8 @@
 
 import { spawnWithOutput } from '@/lib/utils/subprocess';
 import { getHostUrl } from "../databricks-host-utils";
+import { validateOAuthCredentials, buildOAuthBodyParams } from './oauth-core';
+import { buildCliTokenArgs, buildCliDescribeArgs, parseCliTokenResponse, parseCliDescribeResponse, getCliAuthOptionsFromEnv, normalizeHostForCli } from './cli-core';
 
 export function getAuthMethodDescription(): string {
   const method = getAuthMethod();
@@ -61,29 +63,21 @@ export async function getDatabaseUsername(): Promise<string> {
 }
 
 async function getDatabricksOAuthToken(): Promise<string> {
-  const clientId = process.env.DATABRICKS_CLIENT_ID;
-  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
-  const host = getHostUrl();
+  const credentials = validateOAuthCredentials({
+    clientId: process.env.DATABRICKS_CLIENT_ID,
+    clientSecret: process.env.DATABRICKS_CLIENT_SECRET,
+    hostUrl: getHostUrl(),
+  });
 
-  if (!clientId || !clientSecret || !host) {
-    throw new Error(
-      'OAuth service principal authentication requires DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST environment variables'
-    );
-  }
-
-  const tokenUrl = `${host.replace(/\/$/, '')}/oidc/v1/token`;
+  const tokenUrl = `${credentials.hostUrl.replace(/\/$/, '')}/oidc/v1/token`;
+  const body = buildOAuthBodyParams(credentials.clientId, credentials.clientSecret);
 
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      scope: 'all-apis',
-      client_id: clientId,
-      client_secret: clientSecret,
-    }),
+    body,
   });
 
   if (!response.ok) {
@@ -95,61 +89,37 @@ async function getDatabricksOAuthToken(): Promise<string> {
 }
 
 async function getDatabricksCliToken(): Promise<string> {
-  const args = ['auth', 'token'];
+  const cliOptions = getCliAuthOptionsFromEnv();
 
-  // Add profile if specified
-  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
-  if (configProfile) {
-    args.push('--profile', configProfile);
-  }
-
-  // Add host if available
-  const envHost = process.env.DATABRICKS_HOST;
-  if (envHost) {
+  if (cliOptions.host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    args.push('--host', getHostDomain(envHost));
+    cliOptions.host = getHostDomain(cliOptions.host);
   }
+
+  const args = buildCliTokenArgs(cliOptions);
 
   const stdout = await spawnWithOutput('databricks', args, {
     errorMessagePrefix: 'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.'
   });
 
-  const tokenData = JSON.parse(stdout);
-  const accessToken = tokenData.access_token;
-
-  if (!accessToken) {
-    throw new Error('No access_token found in CLI output');
-  }
-
-  return accessToken;
+  const tokenResponse = parseCliTokenResponse(stdout);
+  return tokenResponse.access_token;
 }
 
 async function getDatabricksUserIdentity(): Promise<string> {
-  const args = ['auth', 'describe', '--output', 'json'];
+  const cliOptions = getCliAuthOptionsFromEnv();
 
-  // Add profile if specified
-  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
-  if (configProfile) {
-    args.push('--profile', configProfile);
-  }
-
-  // Add host if available
-  const envHost = process.env.DATABRICKS_HOST;
-  if (envHost) {
+  if (cliOptions.host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    args.push('--host', getHostDomain(envHost));
+    cliOptions.host = getHostDomain(cliOptions.host);
   }
+
+  const args = buildCliDescribeArgs(cliOptions);
 
   const stdout = await spawnWithOutput('databricks', args, {
     errorMessagePrefix: 'Databricks CLI auth describe failed'
   });
 
-  const authData = JSON.parse(stdout);
-  const username = authData.username;
-
-  if (!username) {
-    throw new Error('No username found in CLI auth describe output');
-  }
-
-  return username;
+  const response = parseCliDescribeResponse(stdout);
+  return response.username;
 }

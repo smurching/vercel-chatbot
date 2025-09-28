@@ -19,14 +19,14 @@ import { applyDatabricksRawChunkStreamPartTransform } from '../databricks-raw-ch
 
 // Import auth module directly
 import {
-  getDatabricksToken as getAuthToken,
+  getDatabricksToken,
   getAuthMethod,
   getDatabricksUserIdentity,
   getCachedCliHost
 } from '@/lib/auth/databricks-auth';
 
 // Use centralized authentication - only on server side
-async function getDatabricksToken(): Promise<string> {
+async function getProviderToken(): Promise<string> {
   // First, check if we have a PAT token
   if (process.env.DATABRICKS_TOKEN) {
     console.log('Using PAT token from DATABRICKS_TOKEN env var');
@@ -34,16 +34,7 @@ async function getDatabricksToken(): Promise<string> {
   }
 
   // Otherwise, use centralized authentication module
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Failed to get Databricks token');
-    }
-    return token;
-  } catch (error) {
-    console.error('Failed to get Databricks token:', error);
-    throw new Error('Failed to get Databricks token');
-  }
+  return getDatabricksToken();
 }
 
 // Cache the workspace hostname once resolved
@@ -228,7 +219,7 @@ async function getOrCreateDatabricksProvider(): Promise<
   }
 
   console.log('Creating new OAuth provider');
-  const token = await getDatabricksToken();
+  const token = await getProviderToken();
   const hostname = await getWorkspaceHostname();
 
   // Create provider with fetch that always uses fresh token
@@ -237,7 +228,7 @@ async function getOrCreateDatabricksProvider(): Promise<
     apiKey: token,
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       // Always get fresh token for each request (will use cache if valid)
-      const currentToken = await getDatabricksToken();
+      const currentToken = await getProviderToken();
       const headers = new Headers(init?.headers);
       headers.set('Authorization', `Bearer ${currentToken}`);
 
@@ -351,7 +342,7 @@ const getEndpointDetails = async (servingEndpoint: string) => {
   }
 
   // Always get fresh token for each request (will use cache if valid)
-  const currentToken = await getDatabricksToken();
+  const currentToken = await getProviderToken();
   const hostname = await getWorkspaceHostname();
   const headers = new Headers();
   headers.set('Authorization', `Bearer ${currentToken}`);

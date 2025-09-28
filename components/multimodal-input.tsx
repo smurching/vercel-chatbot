@@ -42,7 +42,7 @@ import { saveChatModelAsCookie } from '@/app/(chat)/actions';
 import { startTransition } from 'react';
 import { getContextWindow, normalizeUsage } from 'tokenlens';
 import { Context } from './elements/context';
-import { myProvider } from '@/lib/ai/providers';
+import { myProvider } from '@/lib/ai/providers-client';
 
 function PureMultimodalInput({
   chatId,

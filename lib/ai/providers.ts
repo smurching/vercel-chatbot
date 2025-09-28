@@ -1,46 +1,22 @@
-import {
-  customProvider,
-} from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+/**
+ * Server-side provider that handles real authentication
+ * This file should NOT be imported by client components
+ */
+
+import 'server-only';
+import { customProvider } from 'ai';
 import { isTestEnvironment } from '../constants';
 
-// Client-side dummy provider for when authentication is not available
-const dummyProvider = createOpenAI({
-  baseURL: 'dummy-provider-frontend',
-  apiKey: 'dummy-key',
-});
-
-// Create client-side provider (used for frontend components that don't need real auth)
-const clientProvider = customProvider({
-  languageModels: {
-    'chat-model': dummyProvider.chat('dummy-model'),
-    'chat-model-reasoning': dummyProvider.chat('dummy-model'),
-    'title-model': dummyProvider.chat('dummy-model'),
-    'artifact-model': dummyProvider.chat('dummy-model'),
-  },
-});
-
-// For server-side usage, we'll dynamically import the authenticated provider
+// For server-side usage, get the authenticated provider
 async function getServerProvider() {
-  if (typeof window !== 'undefined') {
-    // Client-side should never reach here, but just in case
-    return clientProvider;
-  }
-
-  try {
-    const { getServerProviderAction } = await import('./server-provider-action');
-    return await getServerProviderAction();
-  } catch (error) {
-    console.error('Failed to load server provider:', error);
-    // Fallback to client provider (though this shouldn't happen in practice)
-    return clientProvider;
-  }
+  const { getDatabricksServerProvider } = await import('./providers-server');
+  return getDatabricksServerProvider();
 }
 
 // Cache for server provider to avoid recreating it
 let cachedServerProvider: any = null;
 
-// Export the main provider based on environment
+// Export the main provider for server-side usage
 export const myProvider = isTestEnvironment
   ? (() => {
       const {
@@ -58,8 +34,6 @@ export const myProvider = isTestEnvironment
         },
       });
     })()
-  : typeof window !== 'undefined'
-  ? clientProvider // Client-side: use dummy provider
   : { // Server-side: use smart provider that handles OAuth
       async languageModel(id: string) {
         // Only call getServerProvider when actually needed (not during module init)
