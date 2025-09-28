@@ -333,20 +333,40 @@ const databricksMiddleware: LanguageModelV2Middleware = {
       applyDatabricksToolCallStreamPartTransform,
     );
 
+    const deltaEndIds = new Set<string>();
+
     const transformStream = new TransformStream<
       LanguageModelV2StreamPart,
       LanguageModelV2StreamPart
     >({
       transform(chunk, controller) {
         try {
-          console.log('databricksMiddleware incoming chunk', chunk);
-
           // Apply transformation functions to the incoming chunks
           const { out } = transformerStreamParts([chunk], lastChunk);
-          console.log('databricksMiddleware outgoing chunks', out);
 
           // Enqueue the transformed chunks
           out.forEach((transformedChunk) => {
+            if (
+              transformedChunk.type === 'text-delta' ||
+              transformedChunk.type === 'text-start'
+            ) {
+              if (deltaEndIds.has(transformedChunk.id)) {
+                // If we already have a delta end for this id, don't write it again
+                return;
+              }
+            }
+            if (transformedChunk.type === 'text-end') {
+              /**
+               * We regiser when a delta ends.
+               * We rely on response.output_item.done chunks to display non streamed data
+               * so we need to deduplicate them with their corresponding delta chunks.
+               */
+              deltaEndIds.add(transformedChunk.id);
+            }
+            console.log(
+              'writing chunk',
+              JSON.stringify(transformedChunk, null, 2),
+            );
             controller.enqueue(transformedChunk);
           });
 

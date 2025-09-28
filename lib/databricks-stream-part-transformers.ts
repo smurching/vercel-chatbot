@@ -17,7 +17,7 @@ export type DatabricksStreamPartTransformer<
 type OutElement<TFn> = TFn extends (
   parts: any,
   last: any,
-) => { out: (infer O)[]; last: any }
+) => { out: (infer O)[] }
   ? O
   : never;
 
