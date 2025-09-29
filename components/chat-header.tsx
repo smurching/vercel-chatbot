@@ -4,11 +4,11 @@ import { useWindowSize } from 'usehooks-ts';
 
 import { SidebarToggle } from '@/components/sidebar-toggle';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, } from './icons';
+import { PlusIcon } from './icons';
 import { useSidebar } from './ui/sidebar';
 import { memo } from 'react';
-import type { VisibilityType, } from './visibility-selector';
-import type { AuthSession } from '@/lib/auth/databricks-auth';
+import type { VisibilityType } from './visibility-selector';
+import type { AuthSession } from '@/databricks/auth/databricks-auth';
 
 function PureChatHeader({
   chatId,

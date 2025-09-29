@@ -13,15 +13,13 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 
-const schemaName = "ai_chatbot";
+const schemaName = 'ai_chatbot';
 console.log(`[Schema] Using database schema: ${schemaName}`);
 const customSchema = pgSchema(schemaName);
 
-// Helper function to create table with proper schema handling
-function createTable<T>(tableName: string, columns: T, extraConfig?: (table: T) => any) {
-  // Use the schema object for proper drizzle-kit migration generation
-  return customSchema.table(tableName, columns, extraConfig);
-}
+// // Helper function to create table with proper schema handling
+//   // Use the schema object for proper drizzle-kit migration generation
+const createTable = customSchema.table;
 
 export const user = createTable('User', {
   id: text('id').primaryKey().notNull(),

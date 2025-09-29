@@ -2,7 +2,7 @@ import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getAuthSession } from '@/lib/auth/databricks-auth';
+import { getAuthSession } from '@/databricks/auth/databricks-auth';
 
 // Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({

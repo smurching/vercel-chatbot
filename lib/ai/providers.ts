@@ -9,7 +9,9 @@ import { isTestEnvironment } from '../constants';
 
 // For server-side usage, get the authenticated provider
 async function getServerProvider() {
-  const { getDatabricksServerProvider } = await import('./providers-server');
+  const { getDatabricksServerProvider } = await import(
+    '../../databricks/providers/providers-server'
+  );
   return getDatabricksServerProvider();
 }
 
@@ -34,12 +36,13 @@ export const myProvider = isTestEnvironment
         },
       });
     })()
-  : { // Server-side: use smart provider that handles OAuth
+  : {
+      // Server-side: use smart provider that handles OAuth
       async languageModel(id: string) {
         // Only call getServerProvider when actually needed (not during module init)
         if (!cachedServerProvider) {
           cachedServerProvider = await getServerProvider();
         }
         return await cachedServerProvider.languageModel(id);
-      }
+      },
     };

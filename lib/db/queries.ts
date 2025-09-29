@@ -32,7 +32,10 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 import { isDatabaseAvailable } from './connection';
-import { getAuthMethod, getAuthMethodDescription } from '@/lib/auth/databricks-auth';
+import {
+  getAuthMethod,
+  getAuthMethodDescription,
+} from '@/databricks/auth/databricks-auth';
 
 // Re-export User type for external use
 export type { User } from './schema';
@@ -43,13 +46,17 @@ export type { User } from './schema';
 let db: ReturnType<typeof drizzle>;
 
 if (!isDatabaseAvailable()) {
-  throw new Error('Database configuration required. Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
+  throw new Error(
+    'Database configuration required. Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.',
+  );
 }
 
 const authMethod = getAuthMethod();
 if (authMethod === 'oauth' || authMethod === 'cli') {
   // Dynamic auth path - db will be initialized asynchronously
-  console.log(`Using ${getAuthMethodDescription()} authentication for Postgres connection`);
+  console.log(
+    `Using ${getAuthMethodDescription()} authentication for Postgres connection`,
+  );
 } else if (process.env.POSTGRES_URL) {
   // Traditional connection string
   const client = postgres(process.env.POSTGRES_URL);
@@ -67,10 +74,15 @@ async function ensureDb() {
       // Import getDb for database connection
       const { getDb } = await import('./connection-pool');
       const database = await getDb();
-      console.log(`[ensureDb] ${authDescription} db connection obtained successfully`);
+      console.log(
+        `[ensureDb] ${authDescription} db connection obtained successfully`,
+      );
       return database;
     } catch (error) {
-      console.error(`[ensureDb] Failed to get ${authDescription} connection:`, error);
+      console.error(
+        `[ensureDb] Failed to get ${authDescription} connection:`,
+        error,
+      );
       throw error;
     }
   }
@@ -87,7 +99,9 @@ export async function getUserFromHeaders(request: Request): Promise<User> {
   // Check for Databricks Apps headers first
   const forwardedUser = request.headers.get('X-Forwarded-User');
   const forwardedEmail = request.headers.get('X-Forwarded-Email');
-  const forwardedPreferredUsername = request.headers.get('X-Forwarded-Preferred-Username');
+  const forwardedPreferredUsername = request.headers.get(
+    'X-Forwarded-Preferred-Username',
+  );
 
   let userIdentifier: string;
   let userEmail: string;
@@ -95,14 +109,22 @@ export async function getUserFromHeaders(request: Request): Promise<User> {
   if (forwardedUser) {
     // Databricks Apps environment - use forwarded headers
     userIdentifier = forwardedUser;
-    userEmail = forwardedEmail || `${forwardedPreferredUsername}@databricks.com` || `${forwardedUser}@databricks.com`;
-    console.log(`[getUserFromHeaders] Using Databricks Apps user: ${userIdentifier} (${userEmail})`);
+    userEmail =
+      forwardedEmail ||
+      `${forwardedPreferredUsername}@databricks.com` ||
+      `${forwardedUser}@databricks.com`;
+    console.log(
+      `[getUserFromHeaders] Using Databricks Apps user: ${userIdentifier} (${userEmail})`,
+    );
   } else {
     // Local development - use system username
-    const systemUsername = process.env.USER || process.env.USERNAME || 'local-user';
+    const systemUsername =
+      process.env.USER || process.env.USERNAME || 'local-user';
     userIdentifier = systemUsername;
     userEmail = `${systemUsername}@localhost`;
-    console.log(`[getUserFromHeaders] Using local development user: ${userIdentifier} (${userEmail})`);
+    console.log(
+      `[getUserFromHeaders] Using local development user: ${userIdentifier} (${userEmail})`,
+    );
   }
 
   // Return user object with Databricks user ID - no database operations needed
@@ -170,9 +192,13 @@ export async function getChatsByUserId({
   startingAfter: string | null;
   endingBefore: string | null;
 }) {
-
   try {
-    console.log('[getChatsByUserId] Starting query with params:', { id, limit, startingAfter, endingBefore });
+    console.log('[getChatsByUserId] Starting query with params:', {
+      id,
+      limit,
+      startingAfter,
+      endingBefore,
+    });
 
     const extendedLimit = limit + 1;
 
@@ -196,7 +222,10 @@ export async function getChatsByUserId({
     let filteredChats: Array<Chat> = [];
 
     if (startingAfter) {
-      console.log('[getChatsByUserId] Fetching chat for startingAfter:', startingAfter);
+      console.log(
+        '[getChatsByUserId] Fetching chat for startingAfter:',
+        startingAfter,
+      );
       const database = await ensureDb();
       const [selectedChat] = await database
         .select()
@@ -213,7 +242,10 @@ export async function getChatsByUserId({
 
       filteredChats = await query(gt(chat.createdAt, selectedChat.createdAt));
     } else if (endingBefore) {
-      console.log('[getChatsByUserId] Fetching chat for endingBefore:', endingBefore);
+      console.log(
+        '[getChatsByUserId] Fetching chat for endingBefore:',
+        endingBefore,
+      );
       const database = await ensureDb();
       const [selectedChat] = await database
         .select()
@@ -235,7 +267,11 @@ export async function getChatsByUserId({
     }
 
     const hasMore = filteredChats.length > limit;
-    console.log('[getChatsByUserId] Query successful, found', filteredChats.length, 'chats');
+    console.log(
+      '[getChatsByUserId] Query successful, found',
+      filteredChats.length,
+      'chats',
+    );
 
     return {
       chats: hasMore ? filteredChats.slice(0, limit) : filteredChats,
@@ -243,7 +279,10 @@ export async function getChatsByUserId({
     };
   } catch (error) {
     console.error('[getChatsByUserId] Error details:', error);
-    console.error('[getChatsByUserId] Error stack:', error instanceof Error ? error.stack : 'No stack available');
+    console.error(
+      '[getChatsByUserId] Error stack:',
+      error instanceof Error ? error.stack : 'No stack available',
+    );
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to get chats by user id',
@@ -253,7 +292,10 @@ export async function getChatsByUserId({
 
 export async function getChatById({ id }: { id: string }) {
   try {
-    const [selectedChat] = await (await ensureDb()).select().from(chat).where(eq(chat.id, id));
+    const [selectedChat] = await (await ensureDb())
+      .select()
+      .from(chat)
+      .where(eq(chat.id, id));
     if (!selectedChat) {
       return null;
     }
@@ -324,7 +366,10 @@ export async function voteMessage({
 
 export async function getVotesByChatId({ id }: { id: string }) {
   try {
-    return await (await ensureDb()).select().from(vote).where(eq(vote.chatId, id));
+    return await (await ensureDb())
+      .select()
+      .from(vote)
+      .where(eq(vote.chatId, id));
   } catch (error) {
     throw new ChatSDKError(
       'bad_request:database',
@@ -461,7 +506,10 @@ export async function getSuggestionsByDocumentId({
 
 export async function getMessageById({ id }: { id: string }) {
   try {
-    return await (await ensureDb()).select().from(message).where(eq(message.id, id));
+    return await (await ensureDb())
+      .select()
+      .from(message)
+      .where(eq(message.id, id));
   } catch (error) {
     throw new ChatSDKError(
       'bad_request:database',
@@ -516,7 +564,10 @@ export async function updateChatVisiblityById({
   visibility: 'private' | 'public';
 }) {
   try {
-    return await (await ensureDb()).update(chat).set({ visibility }).where(eq(chat.id, chatId));
+    return await (await ensureDb())
+      .update(chat)
+      .set({ visibility })
+      .where(eq(chat.id, chatId));
   } catch (error) {
     throw new ChatSDKError(
       'bad_request:database',
@@ -551,7 +602,6 @@ export async function getMessageCountByUserId({
   id: string;
   differenceInHours: number;
 }) {
-
   try {
     const twentyFourHoursAgo = new Date(
       Date.now() - differenceInHours * 60 * 60 * 1000,

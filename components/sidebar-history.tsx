@@ -2,8 +2,8 @@
 
 import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
 import { useParams, useRouter } from 'next/navigation';
-import type { AuthUser } from '@/lib/auth/databricks-auth';
-import { useState, } from 'react';
+import type { AuthUser } from '@/databricks/auth/databricks-auth';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -103,13 +103,9 @@ export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
     isValidating,
     isLoading,
     mutate,
-  } = useSWRInfinite<ChatHistory>(
-    getChatHistoryPaginationKey,
-    fetcher,
-    {
-      fallbackData: [],
-    }
-  );
+  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+    fallbackData: [],
+  });
 
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -151,7 +147,6 @@ export function SidebarHistory({ user }: { user: AuthUser | undefined }) {
       router.push('/');
     }
   };
-
 
   if (!user) {
     return (

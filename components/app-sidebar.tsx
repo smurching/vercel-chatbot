@@ -1,6 +1,6 @@
 'use client';
 
-import type { AuthUser } from '@/lib/auth/databricks-auth';
+import type { AuthUser } from '@/databricks/auth/databricks-auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 export function AppSidebar({
   user,
-  preferredUsername
+  preferredUsername,
 }: {
   user: AuthUser | undefined;
   preferredUsername: string | null;
@@ -70,7 +70,9 @@ export function AppSidebar({
         <SidebarHistory user={user} />
       </SidebarContent>
       <SidebarFooter>
-        {user && <SidebarUserNav user={user} preferredUsername={preferredUsername} />}
+        {user && (
+          <SidebarUserNav user={user} preferredUsername={preferredUsername} />
+        )}
       </SidebarFooter>
     </Sidebar>
   );

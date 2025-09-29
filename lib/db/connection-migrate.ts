@@ -1,8 +1,19 @@
 /**
  * Database connection utilities for migration scripts (Node.js compatible)
  */
-import { getDatabricksToken, getAuthMethodDescription, getDatabaseUsername } from '@/lib/auth/databricks-auth-node';
-import { getSchemaName, getDatabaseConfigFromEnv, buildConnectionUrl, getPostgresUrlFromEnv, validateDatabaseConfig, isDatabaseAvailable } from './connection-core';
+import {
+  getDatabricksToken,
+  getAuthMethodDescription,
+  getDatabaseUsername,
+} from '@/databricks/auth/databricks-auth-node';
+import {
+  getSchemaName,
+  getDatabaseConfigFromEnv,
+  buildConnectionUrl,
+  getPostgresUrlFromEnv,
+  validateDatabaseConfig,
+  isDatabaseAvailable,
+} from './connection-core';
 
 // Re-export core functions
 export { getSchemaName, isDatabaseAvailable };
@@ -29,7 +40,9 @@ export async function getConnectionUrl(instanceName?: string): Promise<string> {
   // Get authentication token and username using centralized auth module
   const token = await getDatabricksToken();
   const username = await getDatabaseUsername();
-  console.log(`[Connection] Using ${getAuthMethodDescription()} authentication with user: ${username}`);
+  console.log(
+    `[Connection] Using ${getAuthMethodDescription()} authentication with user: ${username}`,
+  );
 
   return buildConnectionUrl(config, { username, password: token });
 }

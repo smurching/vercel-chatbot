@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { getAuthSessionFromHeaders } from '@/lib/auth/databricks-auth';
+import { getAuthSessionFromHeaders } from '@/databricks/auth/databricks-auth';
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';

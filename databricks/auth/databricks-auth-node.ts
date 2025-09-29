@@ -4,7 +4,7 @@
  */
 
 import { spawnWithOutput } from '@/lib/utils/subprocess';
-import { getHostUrl } from "../databricks-host-utils";
+import { getHostUrl } from '../utils/databricks-host-utils';
 
 export function getAuthMethodDescription(): string {
   const method = getAuthMethod();
@@ -20,7 +20,10 @@ export function getAuthMethodDescription(): string {
 
 export function getAuthMethod(): 'oauth' | 'cli' {
   // Check if OAuth service principal credentials are available
-  if (process.env.DATABRICKS_CLIENT_ID && process.env.DATABRICKS_CLIENT_SECRET) {
+  if (
+    process.env.DATABRICKS_CLIENT_ID &&
+    process.env.DATABRICKS_CLIENT_SECRET
+  ) {
     return 'oauth';
   }
 
@@ -49,7 +52,9 @@ export async function getDatabaseUsername(): Promise<string> {
       // For OAuth service principal, use the configured PGUSER
       const pgUser = process.env.PGUSER;
       if (!pgUser) {
-        throw new Error('PGUSER environment variable required for OAuth service principal auth');
+        throw new Error(
+          'PGUSER environment variable required for OAuth service principal auth',
+        );
       }
       return pgUser;
     }
@@ -67,7 +72,7 @@ async function getDatabricksOAuthToken(): Promise<string> {
 
   if (!clientId || !clientSecret || !hostUrl) {
     throw new Error(
-      'OAuth service principal authentication requires DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST environment variables'
+      'OAuth service principal authentication requires DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST environment variables',
     );
   }
 
@@ -88,7 +93,9 @@ async function getDatabricksOAuthToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`OAuth token request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `OAuth token request failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   const tokenData = await response.json();
@@ -100,7 +107,9 @@ async function getDatabricksCliToken(): Promise<string> {
   let host = process.env.DATABRICKS_HOST;
 
   if (host) {
-    const { getHostDomain } = await import('@/lib/databricks-host-utils');
+    const { getHostDomain } = await import(
+      '@/databricks/utils/databricks-host-utils'
+    );
     host = getHostDomain(host);
   }
 
@@ -113,7 +122,8 @@ async function getDatabricksCliToken(): Promise<string> {
   }
 
   const stdout = await spawnWithOutput('databricks', args, {
-    errorMessagePrefix: 'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.'
+    errorMessagePrefix:
+      'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.',
   });
 
   const tokenData = JSON.parse(stdout);
@@ -129,7 +139,9 @@ async function getDatabricksUserIdentity(): Promise<string> {
   let host = process.env.DATABRICKS_HOST;
 
   if (host) {
-    const { getHostDomain } = await import('@/lib/databricks-host-utils');
+    const { getHostDomain } = await import(
+      '@/databricks/utils/databricks-host-utils'
+    );
     host = getHostDomain(host);
   }
 
@@ -142,7 +154,7 @@ async function getDatabricksUserIdentity(): Promise<string> {
   }
 
   const stdout = await spawnWithOutput('databricks', args, {
-    errorMessagePrefix: 'Databricks CLI auth describe failed'
+    errorMessagePrefix: 'Databricks CLI auth describe failed',
   });
 
   const authData = JSON.parse(stdout);

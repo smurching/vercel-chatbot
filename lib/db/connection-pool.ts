@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
 import { getConnectionUrl, getSchemaName } from './connection';
-import { getDatabricksToken } from '@/lib/auth/databricks-auth';
+import { getDatabricksToken } from '@/databricks/auth/databricks-auth';
 
 // Connection pool management
 let sqlConnection: postgres.Sql | null = null;
@@ -47,10 +47,12 @@ async function getConnection(): Promise<postgres.Sql> {
 function isTokenExpiryError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
-    return message.includes('invalid authorization') ||
-           message.includes('databricks token') ||
-           message.includes('authentication failed') ||
-           message.includes('28p01'); // PostgreSQL auth error code
+    return (
+      message.includes('invalid authorization') ||
+      message.includes('databricks token') ||
+      message.includes('authentication failed') ||
+      message.includes('28p01')
+    ); // PostgreSQL auth error code
   }
   return false;
 }
@@ -64,10 +66,16 @@ export async function getDb() {
   if (schemaName !== 'public') {
     try {
       await sql`SET search_path TO ${sql(schemaName)}, public`;
-      console.log(`[DB Pool] Set search_path to include schema '${schemaName}'`);
+      console.log(
+        `[DB Pool] Set search_path to include schema '${schemaName}'`,
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[DB Pool] Failed to set search_path for '${schemaName}':`, errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[DB Pool] Failed to set search_path for '${schemaName}':`,
+        errorMessage,
+      );
       // Don't throw - continue anyway
     }
   }

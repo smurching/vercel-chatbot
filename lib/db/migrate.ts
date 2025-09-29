@@ -1,6 +1,13 @@
 import { config } from 'dotenv';
-import { isDatabaseAvailable, getSchemaName, getConnectionUrl } from './connection-migrate';
-import { getDatabricksToken, getDatabaseUsername } from '@/lib/auth/databricks-auth-node';
+import {
+  isDatabaseAvailable,
+  getSchemaName,
+  getConnectionUrl,
+} from './connection-migrate';
+import {
+  getDatabricksToken,
+  getDatabaseUsername,
+} from '@/databricks/auth/databricks-auth-node';
 import { spawnWithInherit } from '@/lib/utils/subprocess';
 import postgres from 'postgres';
 import { join } from 'node:path';
@@ -16,7 +23,9 @@ async function main() {
   // Require database configuration
   if (!isDatabaseAvailable()) {
     console.error('❌ Database configuration required!');
-    console.error('❌ Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.');
+    console.error(
+      '❌ Please set PGDATABASE/PGHOST/PGUSER or POSTGRES_URL environment variables.',
+    );
     process.exit(1);
   }
 
@@ -46,9 +55,11 @@ async function main() {
     console.log('🔄 Using drizzle-kit push to update schema...');
 
     // Get OAuth token and username for database authentication
-    const env = {...process.env};
+    const env = { ...process.env };
     if (!process.env.POSTGRES_URL) {
-      console.log('🔐 Using OAuth token and username for database authentication');
+      console.log(
+        '🔐 Using OAuth token and username for database authentication',
+      );
       try {
         const token = await getDatabricksToken();
         const username = await getDatabaseUsername();
@@ -56,11 +67,14 @@ async function main() {
         env.PGUSER = username;
         console.log(`🔐 Setting PGUSER to: ${username}`);
       } catch (tokenError) {
-        const errorMessage = tokenError instanceof Error ? tokenError.message : String(tokenError);
+        const errorMessage =
+          tokenError instanceof Error ? tokenError.message : String(tokenError);
         throw new Error(`Failed to get OAuth credentials: ${errorMessage}`);
       }
     } else {
-      console.log('🔐 Using credentials from POSTGRES_URL for database authentication');
+      console.log(
+        '🔐 Using credentials from POSTGRES_URL for database authentication',
+      );
     }
 
     // Find the drizzle-kit binary path
@@ -69,7 +83,7 @@ async function main() {
 
     await spawnWithInherit(drizzleBin, ['push', '--force'], {
       env: env,
-      errorMessagePrefix: 'drizzle-kit push failed'
+      errorMessagePrefix: 'drizzle-kit push failed',
     });
     console.log('✅ drizzle-kit push completed successfully');
     console.log('✅ Database migration completed successfully');

@@ -5,7 +5,10 @@ import {
   type LanguageModelUsage,
   streamText,
 } from 'ai';
-import { getAuthSession, type UserType } from '@/lib/auth/databricks-auth';
+import {
+  getAuthSession,
+  type UserType,
+} from '@/databricks/auth/databricks-auth';
 import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,

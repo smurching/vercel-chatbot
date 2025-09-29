@@ -1,4 +1,4 @@
-import { getAuthSession } from '@/lib/auth/databricks-auth';
+import { getAuthSession } from '@/databricks/auth/databricks-auth';
 import { getSuggestionsByDocumentId } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 

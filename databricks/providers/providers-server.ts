@@ -1,18 +1,18 @@
 import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
-import { getHostUrl } from '@/lib/databricks-host-utils';
+import { getHostUrl } from '@/databricks/utils/databricks-host-utils';
 import type {
   LanguageModelV2,
   LanguageModelV2Middleware,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-import { composeDatabricksStreamPartTransformers } from '../../databricks/stream-transformers/databricks-stream-part-transformers';
+import { composeDatabricksStreamPartTransformers } from '../stream-transformers/databricks-stream-part-transformers';
 import {
   applyDatabricksToolCallStreamPartTransform,
   DATABRICKS_TOOL_CALL_ID,
-} from '../../databricks/stream-transformers/databricks-tool-calling';
-import { applyDatabricksTextPartTransform } from '../../databricks/stream-transformers/databricks-text-parts';
-import { applyDatabricksRawChunkStreamPartTransform } from '../../databricks/stream-transformers/databricks-raw-chunk-transformer';
+} from '../stream-transformers/databricks-tool-calling';
+import { applyDatabricksTextPartTransform } from '../stream-transformers/databricks-text-parts';
+import { applyDatabricksRawChunkStreamPartTransform } from '../stream-transformers/databricks-raw-chunk-transformer';
 
 // Import auth module directly
 import {
@@ -20,7 +20,7 @@ import {
   getAuthMethod,
   getDatabricksUserIdentity,
   getCachedCliHost,
-} from '@/lib/auth/databricks-auth';
+} from '@/databricks/auth/databricks-auth';
 
 // Use centralized authentication - only on server side
 async function getProviderToken(): Promise<string> {
