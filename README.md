@@ -63,7 +63,10 @@ For general features and additional documentation, see the [original repository]
 
    The app starts on [localhost:3000](http://localhost:3000) and automatically:
    - Creates the database schema (`ai_chatbot`)
-   - Runs all necessary migrations
+   - Runs all necessary migrations. 
+     - Note: if you create the database tables via this local development flow prior to deploying your app to Databricks,
+       you'll need to later update ownership of the tables so that the app can run migrations against them, send queries against
+       the database, etc.
    - Sets up OAuth token management
 
 ## Deployment
