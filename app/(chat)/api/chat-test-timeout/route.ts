@@ -69,15 +69,16 @@ export async function POST(request: Request) {
           const totalElapsed = (Date.now() - state!.startTime) / 1000;
 
           // Simulate connection close after 60 seconds total elapsed time (only once)
-          if (i === 7 && !state!.hasSimulatedTimeout && totalElapsed >= 60) {
-            console.log(`[Test Timeout] 🔌 SIMULATING CONNECTION CLOSE at ${totalElapsed.toFixed(1)}s (after chunk ${i})`);
-            state!.currentChunk = i; // Save position (chunk 7 not yet sent)
-            state!.hasSimulatedTimeout = true;
-
-            // Close the stream abruptly to simulate timeout
-            controller.error(new Error('Connection closed by proxy timeout'));
-            return;
-          }
+          // DISABLED: Uncomment to test timeout simulation
+          // if (i === 7 && !state!.hasSimulatedTimeout && totalElapsed >= 60) {
+          //   console.log(`[Test Timeout] 🔌 SIMULATING CONNECTION CLOSE at ${totalElapsed.toFixed(1)}s (after chunk ${i})`);
+          //   state!.currentChunk = i; // Save position (chunk 7 not yet sent)
+          //   state!.hasSimulatedTimeout = true;
+          //
+          //   // Close the stream abruptly to simulate timeout
+          //   controller.error(new Error('Connection closed by proxy timeout'));
+          //   return;
+          // }
 
           // Send chunk as SSE data
           const chunk = `data: ${messageParts[i]}\n\n`;
