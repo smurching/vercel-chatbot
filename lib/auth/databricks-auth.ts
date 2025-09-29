@@ -153,25 +153,52 @@ export async function getDatabricksOAuthToken(): Promise<string> {
     return oauthToken;
   }
 
-  const { validateOAuthCredentials, fetchOAuthToken, calculateTokenExpiration } = await import('./oauth-core');
+  const clientId = process.env.DATABRICKS_CLIENT_ID;
+  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
+  const hostUrl = getHostUrl();
 
-  const credentials = validateOAuthCredentials({
-    clientId: process.env.DATABRICKS_CLIENT_ID,
-    clientSecret: process.env.DATABRICKS_CLIENT_SECRET,
-    hostUrl: getHostUrl(),
+  if (!clientId || !clientSecret || !hostUrl) {
+    throw new Error(
+      'OAuth service principal authentication requires DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST environment variables'
+    );
+  }
+
+  const tokenUrl = `${hostUrl.replace(/\/$/, '')}/oidc/v1/token`;
+  const body = 'grant_type=client_credentials&scope=all-apis';
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
   });
 
-  const tokenResponse = await fetchOAuthToken(credentials);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to get OAuth token: ${response.status} ${errorText}`
+    );
+  }
 
-  oauthToken = tokenResponse.access_token;
+  const data = await response.json();
+  const accessToken = data.access_token;
+
+  if (!accessToken) {
+    throw new Error('No access token received from OAuth response');
+  }
+
+  oauthToken = accessToken;
+
   // Set expiration with a buffer (10 minutes or 20% of lifetime, whichever is smaller)
-  oauthTokenExpiresAt = calculateTokenExpiration(tokenResponse.expires_in || 3600, 0.2, 600);
-
-  const expiresInSeconds = tokenResponse.expires_in || 3600;
+  const expiresInSeconds = data.expires_in || 3600;
   const bufferSeconds = Math.min(600, Math.floor(expiresInSeconds * 0.2));
+  oauthTokenExpiresAt = Date.now() + (expiresInSeconds - bufferSeconds) * 1000;
+
   console.log(`[OAuth] Token acquired, expires in ${expiresInSeconds}s, will refresh in ${expiresInSeconds - bufferSeconds}s`);
 
-  return tokenResponse.access_token;
+  return accessToken;
 }
 
 // ============================================================================
@@ -193,39 +220,51 @@ export async function getDatabricksUserIdentity(): Promise<string> {
   }
 
   const { spawnWithOutput } = await import('@/lib/utils/subprocess');
-  const { buildCliDescribeArgs, parseCliDescribeResponse, getCliAuthOptionsFromEnv, normalizeHostForCli } = await import('./cli-core');
 
   // Get options from environment
-  const cliOptions = getCliAuthOptionsFromEnv();
+  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
+  let host = process.env.DATABRICKS_HOST;
 
   // Use cached host if available, otherwise fall back to env var
   if (cliHostCache && Date.now() < cliHostCacheTime + CLI_HOST_CACHE_DURATION) {
-    cliOptions.host = normalizeHostForCli(cliHostCache);
-  } else if (cliOptions.host) {
+    // Remove protocol if present and trailing slash
+    host = cliHostCache.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  } else if (host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    cliOptions.host = getHostDomain(cliOptions.host);
+    host = getHostDomain(host);
   }
 
-  const args = buildCliDescribeArgs(cliOptions);
+  const args = ['auth', 'describe', '--output', 'json'];
+  if (configProfile) {
+    args.push('--profile', configProfile);
+  }
+  if (host) {
+    args.push('--host', host);
+  }
 
   try {
     const stdout = await spawnWithOutput('databricks', args, {
       errorMessagePrefix: 'Databricks CLI auth describe failed'
     });
 
-    const response = parseCliDescribeResponse(stdout);
-    const username = response.username;
-    const host = response.details?.host;
+    const authData = JSON.parse(stdout);
+    const username = authData.username;
+
+    if (!username) {
+      throw new Error('No username found in CLI auth describe output');
+    }
+
+    const responseHost = authData.details?.host;
 
     // Cache user identity
     cliUserIdentity = username;
     cliUserIdentityExpiresAt = Date.now() + USER_IDENTITY_CACHE_DURATION;
 
     // Cache host information if available
-    if (host) {
-      cliHostCache = host;
+    if (responseHost) {
+      cliHostCache = responseHost;
       cliHostCacheTime = Date.now();
-      console.log(`[CLI Auth] Host cached: ${host}`);
+      console.log(`[CLI Auth] Host cached: ${responseHost}`);
     }
 
     console.log(`[CLI Auth] User identity acquired: ${username}`);
@@ -251,38 +290,50 @@ export async function getDatabricksCliToken(): Promise<string> {
   }
 
   const { spawnWithOutput } = await import('@/lib/utils/subprocess');
-  const { buildCliTokenArgs, parseCliTokenResponse, getCliAuthOptionsFromEnv, normalizeHostForCli, calculateCliTokenExpiration } = await import('./cli-core');
 
   // Get options from environment
-  const cliOptions = getCliAuthOptionsFromEnv();
+  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
+  let host = process.env.DATABRICKS_HOST;
 
   // Use cached host if available, otherwise fall back to env var
   if (cliHostCache && Date.now() < cliHostCacheTime + CLI_HOST_CACHE_DURATION) {
-    cliOptions.host = normalizeHostForCli(cliHostCache);
-  } else if (cliOptions.host) {
+    // Remove protocol if present and trailing slash
+    host = cliHostCache.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  } else if (host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    cliOptions.host = getHostDomain(cliOptions.host);
+    host = getHostDomain(host);
   }
 
-  const args = buildCliTokenArgs(cliOptions);
+  const args = ['auth', 'token'];
+  if (configProfile) {
+    args.push('--profile', configProfile);
+  }
+  if (host) {
+    args.push('--host', host);
+  }
 
   try {
     const stdout = await spawnWithOutput('databricks', args, {
       errorMessagePrefix: 'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.'
     });
 
-    const tokenResponse = parseCliTokenResponse(stdout);
-    const expiresIn = tokenResponse.expires_in || 3600;
+    const tokenData = JSON.parse(stdout);
+    if (!tokenData.access_token) {
+      throw new Error('No access_token found in CLI output');
+    }
 
-    cliToken = tokenResponse.access_token;
+    const expiresIn = tokenData.expires_in || 3600;
+
+    cliToken = tokenData.access_token;
     // Set expiration with a 5-minute buffer to avoid using near-expired tokens
-    cliTokenExpiresAt = calculateCliTokenExpiration(expiresIn, 300);
+    const bufferSeconds = 300;
+    cliTokenExpiresAt = Date.now() + (expiresIn - bufferSeconds) * 1000;
 
     console.log(
       `[CLI Auth] Token acquired, expires in ${expiresIn}s, ` +
-      `will refresh in ${expiresIn - 300}s`
+      `will refresh in ${expiresIn - bufferSeconds}s`
     );
-    return tokenResponse.access_token;
+    return tokenData.access_token;
   } catch (error) {
     if (error instanceof Error && error.message.includes('Failed to parse')) {
       throw error;

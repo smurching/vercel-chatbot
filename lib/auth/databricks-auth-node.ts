@@ -5,8 +5,6 @@
 
 import { spawnWithOutput } from '@/lib/utils/subprocess';
 import { getHostUrl } from "../databricks-host-utils";
-import { validateOAuthCredentials, buildOAuthBodyParams } from './oauth-core';
-import { buildCliTokenArgs, buildCliDescribeArgs, parseCliTokenResponse, parseCliDescribeResponse, getCliAuthOptionsFromEnv, normalizeHostForCli } from './cli-core';
 
 export function getAuthMethodDescription(): string {
   const method = getAuthMethod();
@@ -63,14 +61,23 @@ export async function getDatabaseUsername(): Promise<string> {
 }
 
 async function getDatabricksOAuthToken(): Promise<string> {
-  const credentials = validateOAuthCredentials({
-    clientId: process.env.DATABRICKS_CLIENT_ID,
-    clientSecret: process.env.DATABRICKS_CLIENT_SECRET,
-    hostUrl: getHostUrl(),
-  });
+  const clientId = process.env.DATABRICKS_CLIENT_ID;
+  const clientSecret = process.env.DATABRICKS_CLIENT_SECRET;
+  const hostUrl = getHostUrl();
 
-  const tokenUrl = `${credentials.hostUrl.replace(/\/$/, '')}/oidc/v1/token`;
-  const body = buildOAuthBodyParams(credentials.clientId, credentials.clientSecret);
+  if (!clientId || !clientSecret || !hostUrl) {
+    throw new Error(
+      'OAuth service principal authentication requires DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, and DATABRICKS_HOST environment variables'
+    );
+  }
+
+  const tokenUrl = `${hostUrl.replace(/\/$/, '')}/oidc/v1/token`;
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    scope: 'all-apis',
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
 
   const response = await fetch(tokenUrl, {
     method: 'POST',
@@ -89,37 +96,59 @@ async function getDatabricksOAuthToken(): Promise<string> {
 }
 
 async function getDatabricksCliToken(): Promise<string> {
-  const cliOptions = getCliAuthOptionsFromEnv();
+  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
+  let host = process.env.DATABRICKS_HOST;
 
-  if (cliOptions.host) {
+  if (host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    cliOptions.host = getHostDomain(cliOptions.host);
+    host = getHostDomain(host);
   }
 
-  const args = buildCliTokenArgs(cliOptions);
+  const args = ['auth', 'token'];
+  if (configProfile) {
+    args.push('--profile', configProfile);
+  }
+  if (host) {
+    args.push('--host', host);
+  }
 
   const stdout = await spawnWithOutput('databricks', args, {
     errorMessagePrefix: 'Databricks CLI auth token failed\nMake sure you have run "databricks auth login" first.'
   });
 
-  const tokenResponse = parseCliTokenResponse(stdout);
-  return tokenResponse.access_token;
+  const tokenData = JSON.parse(stdout);
+  if (!tokenData.access_token) {
+    throw new Error('No access_token found in CLI output');
+  }
+
+  return tokenData.access_token;
 }
 
 async function getDatabricksUserIdentity(): Promise<string> {
-  const cliOptions = getCliAuthOptionsFromEnv();
+  const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
+  let host = process.env.DATABRICKS_HOST;
 
-  if (cliOptions.host) {
+  if (host) {
     const { getHostDomain } = await import('@/lib/databricks-host-utils');
-    cliOptions.host = getHostDomain(cliOptions.host);
+    host = getHostDomain(host);
   }
 
-  const args = buildCliDescribeArgs(cliOptions);
+  const args = ['auth', 'describe', '--output', 'json'];
+  if (configProfile) {
+    args.push('--profile', configProfile);
+  }
+  if (host) {
+    args.push('--host', host);
+  }
 
   const stdout = await spawnWithOutput('databricks', args, {
     errorMessagePrefix: 'Databricks CLI auth describe failed'
   });
 
-  const response = parseCliDescribeResponse(stdout);
-  return response.username;
+  const authData = JSON.parse(stdout);
+  if (!authData.username) {
+    throw new Error('No username found in CLI auth describe output');
+  }
+
+  return authData.username;
 }
