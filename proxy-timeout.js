@@ -13,9 +13,9 @@
 import http from 'http';
 import httpProxy from 'http-proxy';
 
-const TARGET_PORT = 3001; // Next.js dev server port
+const TARGET_PORT = 3000; // Next.js dev server port
 const PROXY_PORT = 4000;
-const TIMEOUT_MS = 60000; // 60 seconds
+const TIMEOUT_MS = 5000; // 5 seconds
 
 const proxy = httpProxy.createProxyServer({
   target: `http://localhost:${TARGET_PORT}`,
@@ -31,9 +31,10 @@ const server = http.createServer((req, res) => {
 
     // Destroy the connection to simulate proxy timeout
     req.destroy();
+    console.log(`[Proxy] Connection closed by proxy for ${req.url}`);
     if (!res.headersSent) {
       res.writeHead(504, { 'Content-Type': 'text/plain' });
-      res.end('Gateway Timeout: Connection closed by proxy after 60s');
+      res.end(`Gateway Timeout: Connection closed by proxy after ${TIMEOUT_MS} ms`);
     }
   }, TIMEOUT_MS);
 
