@@ -6,7 +6,7 @@ import type {
 } from 'ai';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { DBMessage, Document } from '@/lib/db/schema';
+import type { DBMessage, Document } from '@/databricks/db/schema';
 import { ChatSDKError, type ErrorCode } from './errors';
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
 import { formatISO } from 'date-fns';
@@ -48,7 +48,7 @@ export async function fetchWithErrorHandlers(
   }
 }
 
-export function getLocalStorage(key: string) {
+function getLocalStorage(key: string) {
   if (typeof window !== 'undefined') {
     return JSON.parse(localStorage.getItem(key) || '[]');
   }
@@ -66,12 +66,12 @@ export function generateUUID(): string {
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
-export function getMostRecentUserMessage(messages: Array<UIMessage>) {
+function getMostRecentUserMessage(messages: Array<UIMessage>) {
   const userMessages = messages.filter((message) => message.role === 'user');
   return userMessages.at(-1);
 }
 
-export function getDocumentTimestampByIndex(
+function getDocumentTimestampByIndex(
   documents: Array<Document>,
   index: number,
 ) {
@@ -81,7 +81,7 @@ export function getDocumentTimestampByIndex(
   return documents[index].createdAt;
 }
 
-export function getTrailingMessageId({
+function getTrailingMessageId({
   messages,
 }: {
   messages: Array<ResponseMessage>;

@@ -1,6 +1,6 @@
-import { getAuthSession } from '@/lib/auth/databricks-auth';
+import { getAuthSession } from '@/databricks/auth/databricks-auth';
 import type { NextRequest } from 'next/server';
-import { getChatsByUserId } from '@/lib/db/queries';
+import { getChatsByUserId } from '@/databricks/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
 export async function GET(request: NextRequest) {

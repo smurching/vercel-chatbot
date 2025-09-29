@@ -1,10 +1,9 @@
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { getAuthSessionFromHeaders } from '@/lib/auth/databricks-auth';
+import { getAuthSessionFromHeaders } from '@/databricks/auth/databricks-auth';
 import { Chat } from '@/components/chat';
-import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
-import { DataStreamHandler } from '@/components/data-stream-handler';
+import { getChatById, getMessagesByChatId } from '@/databricks/db/queries';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { convertToUIMessages } from '@/lib/utils';
 
@@ -56,7 +55,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           autoResume={true}
           initialLastContext={chat.lastContext ?? undefined}
         />
-        <DataStreamHandler />
       </>
     );
   }
@@ -73,7 +71,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         autoResume={true}
         initialLastContext={chat.lastContext ?? undefined}
       />
-      <DataStreamHandler />
     </>
   );
 }

@@ -5,24 +5,24 @@ import {
   type LanguageModelUsage,
   streamText,
 } from 'ai';
-import { getAuthSession, type UserType } from '@/lib/auth/databricks-auth';
-import type { RequestHints } from '@/lib/ai/prompts';
 import {
-  createStreamId,
+  getAuthSession,
+  type UserType,
+} from '@/databricks/auth/databricks-auth';
+import {
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
   saveChat,
   saveMessages,
-} from '@/lib/db/queries';
-import { updateChatLastContextById } from '@/lib/db/queries';
+} from '@/databricks/db/queries';
+import { updateChatLastContextById } from '@/databricks/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
-import { geolocation } from '@vercel/functions';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
@@ -30,7 +30,7 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
-} from '@/lib/databricks-tool-calling';
+} from '@/databricks/stream-transformers/databricks-tool-calling';
 
 export const maxDuration = 60;
 
@@ -98,15 +98,6 @@ export async function POST(request: Request) {
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
-    const { longitude, latitude, city, country } = geolocation(request);
-
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
-
     await saveMessages({
       messages: [
         {
@@ -120,9 +111,6 @@ export async function POST(request: Request) {
       ],
     });
 
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
-
     let finalUsage: LanguageModelUsage | undefined;
 
     const stream = createUIMessageStream({
@@ -130,11 +118,7 @@ export async function POST(request: Request) {
         const model = await myProvider.languageModel(selectedChatModel);
         const result = streamText({
           model,
-          // TODO(smurching): conditionally include system prompt? It seems to break
-          // Agent Bricks KA endpoints
-          // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          // stopWhen: stepCountIs(5),
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });

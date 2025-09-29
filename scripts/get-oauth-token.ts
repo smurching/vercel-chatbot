@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { getDatabricksToken } from '../lib/auth/databricks-auth-node';
+import { getDatabricksToken } from '../databricks/auth/databricks-auth-node';
 
 async function getToken() {
   try {

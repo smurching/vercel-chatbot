@@ -19,7 +19,7 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
   code: '',
 });
 
-export type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
+type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: string;
   showLineNumbers?: boolean;
@@ -105,13 +105,13 @@ export const CodeBlock = ({
   </CodeBlockContext.Provider>
 );
 
-export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
+type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
 };
 
-export const CodeBlockCopyButton = ({
+const CodeBlockCopyButton = ({
   onCopy,
   onError,
   timeout = 2000,

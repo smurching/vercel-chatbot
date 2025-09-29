@@ -1,7 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
 import React, { memo, useState } from 'react';
-import type { Vote } from '@/lib/db/schema';
 import { SparklesIcon } from './icons';
 import { Response } from './elements/response';
 import { MessageContent } from './elements/message';
@@ -32,23 +31,19 @@ import { components } from './elements/streamdown-components/components';
 const PurePreviewMessage = ({
   chatId,
   message,
-  vote,
   isLoading,
   setMessages,
   regenerate,
   isReadonly,
   requiresScrollPadding,
-  isArtifactVisible,
 }: {
   chatId: string;
   message: ChatMessage;
-  vote: Vote | undefined;
   isLoading: boolean;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   isReadonly: boolean;
   requiresScrollPadding: boolean;
-  isArtifactVisible: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -246,9 +241,7 @@ const PurePreviewMessage = ({
           {!isReadonly && (
             <MessageActions
               key={`action-${message.id}`}
-              chatId={chatId}
               message={message}
-              vote={vote}
               isLoading={isLoading}
               setMode={setMode}
             />
@@ -267,7 +260,6 @@ export const PreviewMessage = memo(
     if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding)
       return false;
     if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-    if (!equal(prevProps.vote, nextProps.vote)) return false;
 
     return false;
   },

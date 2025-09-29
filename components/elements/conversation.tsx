@@ -7,7 +7,7 @@ import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 
-export type ConversationProps = ComponentProps<typeof StickToBottom>;
+type ConversationProps = ComponentProps<typeof StickToBottom>;
 
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
@@ -22,7 +22,7 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
   />
 );
 
-export type ConversationContentProps = ComponentProps<
+type ConversationContentProps = ComponentProps<
   typeof StickToBottom.Content
 >;
 
@@ -33,9 +33,9 @@ export const ConversationContent = ({
   <StickToBottom.Content className={cn('p-4', className)} {...props} />
 );
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+type ConversationScrollButtonProps = ComponentProps<typeof Button>;
 
-export const ConversationScrollButton = ({
+const ConversationScrollButton = ({
   className,
   ...props
 }: ConversationScrollButtonProps) => {

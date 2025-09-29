@@ -1,7 +1,11 @@
 import { config } from 'dotenv';
 import postgres from 'postgres';
-import { getDatabricksToken } from '../lib/auth/databricks-auth-node';
-import { getPostgresUrlFromEnv, getDatabaseConfigFromEnv, buildConnectionUrl } from '../lib/db/connection-core';
+import { getDatabricksToken } from '../databricks/auth/databricks-auth-node';
+import {
+  getPostgresUrlFromEnv,
+  getDatabaseConfigFromEnv,
+  buildConnectionUrl,
+} from '../databricks/db/connection-core';
 
 config({ path: '.env.local' });
 
