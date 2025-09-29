@@ -7,7 +7,15 @@ export const applyDatabricksTextPartTransform: DatabricksStreamPartTransformer<
   const out: LanguageModelV2StreamPart[] = [];
 
   for (const incoming of parts) {
-    // 1️⃣ Close a dangling text-delta when a non‑text chunk arrives.
+    if (isRawAssistantMessagePart(incoming)) {
+      out.push(
+        { type: 'text-start', id: incoming.rawValue.item.id },
+        rawAssistantMessagePartToTextPart(incoming),
+        { type: 'text-end', id: incoming.rawValue.item.id },
+      );
+      continue;
+    }
+
     if (
       last?.type === 'text-delta' &&
       incoming.type !== 'text-delta' &&
@@ -36,4 +44,43 @@ export const applyDatabricksTextPartTransform: DatabricksStreamPartTransformer<
   }
 
   return { out };
+};
+
+type RawAssistantMessagePart = {
+  type: 'raw';
+  rawValue: {
+    type: 'response.output_item.done';
+    item: {
+      id: string;
+      content: [
+        {
+          text: "Based on the sales data from our finance system, **Citrus is the best selling flavor** among our current energy drink lineup.\n\nHere's the sales performance breakdown:\n\n1. **Citrus** - $12.92 million in total net sales (best seller)\n2. **Original** - $12.40 million in total net sales \n3. **Berry** - $11.08 million in total net sales\n4. **Grape** - $5.07 million in total net sales\n\nCitrus leads by a margin of about $520,000 over Original, making it our top performer. Grape significantly trails the other flavors with roughly half the sales volume of the next best performer (Berry).";
+          type: 'output_text';
+        },
+      ];
+      role: 'assistant';
+      type: 'message';
+    };
+    id: string;
+  };
+};
+export const isRawAssistantMessagePart = (
+  part: LanguageModelV2StreamPart,
+): part is RawAssistantMessagePart => {
+  if (part.type !== 'raw') return false;
+  const rawValue = part.rawValue as any;
+  return (
+    rawValue?.type === 'response.output_item.done' &&
+    rawValue?.item?.type === 'message' &&
+    rawValue?.item?.role === 'assistant'
+  );
+};
+const rawAssistantMessagePartToTextPart = (
+  part: RawAssistantMessagePart,
+): LanguageModelV2StreamPart => {
+  return {
+    type: 'text-delta',
+    id: part.rawValue.item.id,
+    delta: part.rawValue.item.content[0].text,
+  };
 };

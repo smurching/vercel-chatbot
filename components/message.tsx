@@ -23,8 +23,11 @@ import type { ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
 import {
   createMessagePartSegments,
+  formatNamePart,
+  isNamePart,
   joinMessagePartSegments,
-} from './databricks-message-citation';
+} from './databricks-message-part-transformers';
+import { components } from './elements/streamdown-components/components';
 
 const PurePreviewMessage = ({
   chatId,
@@ -85,7 +88,7 @@ const PurePreviewMessage = ({
         )}
 
         <div
-          className={cn('flex flex-col', {
+          className={cn('flex min-w-0 flex-col', {
             'gap-2 md:gap-4': message.parts?.some(
               (p) => p.type === 'text' && p.text?.trim(),
             ),
@@ -134,6 +137,13 @@ const PurePreviewMessage = ({
             }
 
             if (type === 'text') {
+              if (isNamePart(part)) {
+                return (
+                  <components.h3 key={key} className="-mb-2 mt-0">
+                    {formatNamePart(part)}
+                  </components.h3>
+                );
+              }
               if (mode === 'view') {
                 return (
                   <div key={key}>
