@@ -24,6 +24,7 @@ import {
 } from './icons';
 import { PreviewAttachment } from './preview-attachment';
 import { Button } from './ui/button';
+import { SuggestedActions } from './suggested-actions';
 import {
   PromptInput,
   PromptInputTextarea,
@@ -321,6 +322,16 @@ function PureMultimodalInput({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {messages.length === 0 &&
+        attachments.length === 0 &&
+        uploadQueue.length === 0 && (
+          <SuggestedActions
+            sendMessage={sendMessage}
+            chatId={chatId}
+            selectedVisibilityType={selectedVisibilityType}
+          />
+        )}
 
       <input
         type="file"
