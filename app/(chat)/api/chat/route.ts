@@ -3,10 +3,9 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type LanguageModelUsage,
-  stepCountIs,
   streamText,
 } from 'ai';
-import { auth, type UserType } from '@/app/(auth)/auth';
+import { getAuthSession, type UserType } from '@/lib/auth/databricks-auth';
 import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,
@@ -60,7 +59,7 @@ export async function POST(request: Request) {
       selectedVisibilityType: VisibilityType;
     } = requestBody;
 
-    const session = await auth();
+    const session = await getAuthSession(request);
 
     if (!session?.user) {
       return new ChatSDKError('unauthorized:chat').toResponse();
@@ -216,7 +215,7 @@ export async function DELETE(request: Request) {
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth();
+  const session = await getAuthSession(request);
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:chat').toResponse();

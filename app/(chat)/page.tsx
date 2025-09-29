@@ -1,17 +1,18 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 import { Chat } from '@/components/chat';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { generateUUID } from '@/lib/utils';
 import { DataStreamHandler } from '@/components/data-stream-handler';
-import { auth } from '../(auth)/auth';
-import { redirect } from 'next/navigation';
+import { getAuthSessionFromHeaders } from '@/lib/auth/databricks-auth';
+import { notFound } from 'next/navigation';
 
 export default async function Page() {
-  const session = await auth();
+  const headersList = await headers();
+  const session = await getAuthSessionFromHeaders(headersList);
 
   if (!session) {
-    redirect('/api/auth/guest');
+    return notFound(); // No guest auth in Databricks-only mode
   }
 
   const id = generateUUID();

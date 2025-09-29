@@ -1,4 +1,4 @@
-import { auth } from '@/app/(auth)/auth';
+import { getAuthSession } from '@/lib/auth/databricks-auth';
 import { getSuggestionsByDocumentId } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const session = await getAuthSession(request);
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:suggestions').toResponse();

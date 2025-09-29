@@ -1,24 +1,6 @@
 command: ["npm", "run", "start"]
 runtime: nodejs20
 
-resources:
-  - name: serving-endpoint-name
-    description: "Databricks serving endpoint name for the AI agent"
-
 env:
-  - name: AUTH_SECRET
-    valueFrom: vercel-auth-secret
-  - name: POSTGRES_URL
-    valueFrom: postgres-url-secret
-  - name: BLOB_READ_WRITE_TOKEN
-    value: "does_not_matter"
-#  - name: DATABRICKS_HOST
-#    value: "https://e2-dogfood.staging.cloud.databricks.com"
-#  - name: DATABRICKS_TOKEN
-#    valueFrom: smurching-pat
   - name: DATABRICKS_SERVING_ENDPOINT
     valueFrom: serving-endpoint
-  - name: AI_GATEWAY_API_KEY
-    value: "does_not_matter"
-  - name: AUTH_TRUST_HOST
-    value: "true" # See https://authjs.dev/getting-started/deployment#self-hosted

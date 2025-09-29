@@ -42,7 +42,9 @@ import { saveChatModelAsCookie } from '@/app/(chat)/actions';
 import { startTransition } from 'react';
 import { getContextWindow, normalizeUsage } from 'tokenlens';
 import { Context } from './elements/context';
-import { myProvider } from '@/lib/ai/providers';
+import { customProvider } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { isTestEnvironment } from '@/lib/constants';
 
 function PureMultimodalInput({
   chatId,
@@ -189,9 +191,43 @@ function PureMultimodalInput({
     }
   };
 
+  const myProvider = useMemo(() => {
+    if (isTestEnvironment) {
+      const {
+        artifactModel,
+        chatModel,
+        reasoningModel,
+        titleModel,
+      } = require('@/lib/ai/models.mock');
+      return customProvider({
+        languageModels: {
+          'chat-model': chatModel,
+          'chat-model-reasoning': reasoningModel,
+          'title-model': titleModel,
+          'artifact-model': artifactModel,
+        },
+      });
+    } else {
+      // Client-side dummy provider for when authentication is not available
+      const dummyProvider = createOpenAI({
+        baseURL: 'dummy-provider-frontend',
+        apiKey: 'dummy-key',
+      });
+
+      return customProvider({
+        languageModels: {
+          'chat-model': dummyProvider.chat('dummy-model'),
+          'chat-model-reasoning': dummyProvider.chat('dummy-model'),
+          'title-model': dummyProvider.chat('dummy-model'),
+          'artifact-model': dummyProvider.chat('dummy-model'),
+        },
+      });
+    }
+  }, []);
+
   const modelResolver = useMemo(() => {
     return myProvider.languageModel(selectedModelId);
-  }, [selectedModelId]);
+  }, [selectedModelId, myProvider]);
 
   const contextMax = useMemo(() => {
     // Resolve from selected model; stable across chunks.
