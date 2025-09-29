@@ -6,16 +6,7 @@ type ErrorType =
   | 'rate_limit'
   | 'offline';
 
-type Surface =
-  | 'chat'
-  | 'auth'
-  | 'api'
-  | 'stream'
-  | 'database'
-  | 'history'
-  | 'vote'
-  | 'document'
-  | 'suggestions';
+type Surface = 'chat' | 'auth' | 'api' | 'stream' | 'database' | 'history';
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
@@ -28,9 +19,6 @@ const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   stream: 'response',
   api: 'response',
   history: 'response',
-  vote: 'response',
-  document: 'response',
-  suggestions: 'response',
 };
 
 export class ChatSDKError extends Error {

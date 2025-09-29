@@ -9,7 +9,6 @@ import {
   getAuthSession,
   type UserType,
 } from '@/databricks/auth/databricks-auth';
-import type { RequestHints } from '@/lib/ai/prompts';
 import {
   createStreamId,
   deleteChatById,
@@ -103,13 +102,6 @@ export async function POST(request: Request) {
 
     const { longitude, latitude, city, country } = geolocation(request);
 
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
-
     await saveMessages({
       messages: [
         {
@@ -133,11 +125,7 @@ export async function POST(request: Request) {
         const model = await myProvider.languageModel(selectedChatModel);
         const result = streamText({
           model,
-          // TODO(smurching): conditionally include system prompt? It seems to break
-          // Agent Bricks KA endpoints
-          // system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
-          // stopWhen: stepCountIs(5),
           onFinish: ({ usage }) => {
             finalUsage = usage;
             dataStream.write({ type: 'data-usage', data: usage });

@@ -1,14 +1,10 @@
 import { z } from 'zod';
 import type { InferUITool, LanguageModelUsage, UIMessage } from 'ai';
 
-import type { ArtifactKind } from '@/components/artifact';
-import type { Suggestion } from '../databricks/db/schema';
 import type {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
 } from '../databricks/stream-transformers/databricks-tool-calling';
-
-type DataPart = { type: 'append-message'; message: string };
 
 const messageMetadataSchema = z.object({
   createdAt: z.string(),
@@ -27,11 +23,9 @@ export type CustomUIDataTypes = {
   imageDelta: string;
   sheetDelta: string;
   codeDelta: string;
-  suggestion: Suggestion;
   appendMessage: string;
   id: string;
   title: string;
-  kind: ArtifactKind;
   clear: null;
   finish: null;
   usage: LanguageModelUsage;
