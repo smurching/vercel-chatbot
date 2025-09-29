@@ -10,7 +10,6 @@ import {
   type UserType,
 } from '@/databricks/auth/databricks-auth';
 import {
-  createStreamId,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
@@ -24,7 +23,6 @@ import { generateTitleFromUserMessage } from '../../actions';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
-import { geolocation } from '@vercel/functions';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
@@ -100,8 +98,6 @@ export async function POST(request: Request) {
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
-    const { longitude, latitude, city, country } = geolocation(request);
-
     await saveMessages({
       messages: [
         {
@@ -114,9 +110,6 @@ export async function POST(request: Request) {
         },
       ],
     });
-
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
 
     let finalUsage: LanguageModelUsage | undefined;
 

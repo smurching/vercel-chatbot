@@ -14,8 +14,8 @@ const schemaName = getSchemaName();
 // For compatibility with drizzle-kit CLI, use PG* environment variables
 // The password will be provided via PGPASSWORD environment variable from migrate.ts
 export default defineConfig({
-  schema: './lib/db/schema.ts',
-  out: './lib/db/migrations',
+  schema: './databricks/db/schema.ts',
+  out: './databricks/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
     host: process.env.PGHOST || 'placeholder',

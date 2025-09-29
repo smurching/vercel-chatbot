@@ -6,8 +6,6 @@ import {
   jsonb,
   uuid,
   text,
-  primaryKey,
-  foreignKey,
   pgSchema,
 } from 'drizzle-orm/pg-core';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
@@ -67,21 +65,3 @@ export const message = createTable('Message_v2', {
 });
 
 export type DBMessage = InferSelectModel<typeof message>;
-
-export const stream = createTable(
-  'Stream',
-  {
-    id: uuid('id').notNull().defaultRandom(),
-    chatId: uuid('chatId').notNull(),
-    createdAt: timestamp('createdAt').notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.id] }),
-    chatRef: foreignKey({
-      columns: [table.chatId],
-      foreignColumns: [chat.id],
-    }),
-  }),
-);
-
-export type Stream = InferSelectModel<typeof stream>;

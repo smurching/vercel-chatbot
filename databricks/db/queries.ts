@@ -15,14 +15,7 @@ import {
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
-import {
-  chat,
-  type User,
-  message,
-  type DBMessage,
-  type Chat,
-  stream,
-} from './schema';
+import { chat, type User, message, type DBMessage, type Chat } from './schema';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../../lib/errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
@@ -160,7 +153,6 @@ export async function saveChat({
 export async function deleteChatById({ id }: { id: string }) {
   try {
     await (await ensureDb()).delete(message).where(eq(message.chatId, id));
-    await (await ensureDb()).delete(stream).where(eq(stream.chatId, id));
 
     const [chatsDeleted] = await (await ensureDb())
       .delete(chat)
@@ -442,43 +434,6 @@ export async function getMessageCountByUserId({
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to get message count by user id',
-    );
-  }
-}
-
-export async function createStreamId({
-  streamId,
-  chatId,
-}: {
-  streamId: string;
-  chatId: string;
-}) {
-  try {
-    await (await ensureDb())
-      .insert(stream)
-      .values({ id: streamId, chatId, createdAt: new Date() });
-  } catch (error) {
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to create stream id',
-    );
-  }
-}
-
-export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
-  try {
-    const streamIds = await (await ensureDb())
-      .select({ id: stream.id })
-      .from(stream)
-      .where(eq(stream.chatId, chatId))
-      .orderBy(asc(stream.createdAt))
-      .execute();
-
-    return streamIds.map(({ id }) => id);
-  } catch (error) {
-    throw new ChatSDKError(
-      'bad_request:database',
-      'Failed to get stream ids by chat id',
     );
   }
 }
