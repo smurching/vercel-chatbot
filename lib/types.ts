@@ -6,7 +6,7 @@ import type { Suggestion } from './db/schema';
 import type {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
-} from '../databricks/chunk-transformers/databricks-tool-calling';
+} from '../databricks/stream-transformers/databricks-tool-calling';
 
 export type DataPart = { type: 'append-message'; message: string };
 

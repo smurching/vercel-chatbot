@@ -6,13 +6,13 @@ import type {
   LanguageModelV2Middleware,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-import { composeDatabricksStreamPartTransformers } from '../../databricks/chunk-transformers/databricks-stream-part-transformers';
+import { composeDatabricksStreamPartTransformers } from '../../databricks/stream-transformers/databricks-stream-part-transformers';
 import {
   applyDatabricksToolCallStreamPartTransform,
   DATABRICKS_TOOL_CALL_ID,
-} from '../../databricks/chunk-transformers/databricks-tool-calling';
-import { applyDatabricksTextPartTransform } from '../../databricks/chunk-transformers/databricks-text-parts';
-import { applyDatabricksRawChunkStreamPartTransform } from '../../databricks/chunk-transformers/databricks-raw-chunk-transformer';
+} from '../../databricks/stream-transformers/databricks-tool-calling';
+import { applyDatabricksTextPartTransform } from '../../databricks/stream-transformers/databricks-text-parts';
+import { applyDatabricksRawChunkStreamPartTransform } from '../../databricks/stream-transformers/databricks-raw-chunk-transformer';
 
 // Import auth module directly
 import {
