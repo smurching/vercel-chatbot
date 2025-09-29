@@ -30,7 +30,7 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
-} from '@/lib/databricks-tool-calling';
+} from '@/databricks/chunk-transformers/databricks-tool-calling';
 
 export const maxDuration = 60;
 

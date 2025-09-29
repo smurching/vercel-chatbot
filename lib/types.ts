@@ -1,16 +1,12 @@
 import { z } from 'zod';
-import type {
-  InferUITool,
-  LanguageModelUsage,
-  UIMessage,
-} from 'ai';
+import type { InferUITool, LanguageModelUsage, UIMessage } from 'ai';
 
 import type { ArtifactKind } from '@/components/artifact';
 import type { Suggestion } from './db/schema';
 import type {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
-} from './databricks-tool-calling';
+} from '../databricks/chunk-transformers/databricks-tool-calling';
 
 export type DataPart = { type: 'append-message'; message: string };
 
@@ -20,10 +16,10 @@ export const messageMetadataSchema = z.object({
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
-type databricksToolCall = InferUITool<typeof DATABRICKS_TOOL_DEFINITION>;
-
 export type ChatTools = {
-  [K in typeof DATABRICKS_TOOL_CALL_ID]: databricksToolCall;
+  [K in typeof DATABRICKS_TOOL_CALL_ID]: InferUITool<
+    typeof DATABRICKS_TOOL_DEFINITION
+  >;
 };
 
 export type CustomUIDataTypes = {

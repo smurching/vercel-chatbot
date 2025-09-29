@@ -1,7 +1,4 @@
-import {
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from 'ai';
+import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { getHostUrl } from '@/lib/databricks-host-utils';
 import type {
@@ -9,20 +6,20 @@ import type {
   LanguageModelV2Middleware,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-import { composeDatabricksStreamPartTransformers } from '../databricks-stream-part-transformers';
+import { composeDatabricksStreamPartTransformers } from '../../databricks/chunk-transformers/databricks-stream-part-transformers';
 import {
   applyDatabricksToolCallStreamPartTransform,
   DATABRICKS_TOOL_CALL_ID,
-} from '../databricks-tool-calling';
-import { applyDatabricksTextPartTransform } from '../databricks-text-parts';
-import { applyDatabricksRawChunkStreamPartTransform } from '../databricks-raw-chunk-transformer';
+} from '../../databricks/chunk-transformers/databricks-tool-calling';
+import { applyDatabricksTextPartTransform } from '../../databricks/chunk-transformers/databricks-text-parts';
+import { applyDatabricksRawChunkStreamPartTransform } from '../../databricks/chunk-transformers/databricks-raw-chunk-transformer';
 
 // Import auth module directly
 import {
   getDatabricksToken,
   getAuthMethod,
   getDatabricksUserIdentity,
-  getCachedCliHost
+  getCachedCliHost,
 } from '@/lib/auth/databricks-auth';
 
 // Use centralized authentication - only on server side
@@ -61,7 +58,9 @@ async function getWorkspaceHostname(): Promise<string> {
         cachedWorkspaceHostname = cliHost;
         return cachedWorkspaceHostname;
       } else {
-        throw new Error('CLI authentication succeeded but hostname was not cached');
+        throw new Error(
+          'CLI authentication succeeded but hostname was not cached',
+        );
       }
     } else {
       // For OAuth, use the standard method
@@ -69,7 +68,9 @@ async function getWorkspaceHostname(): Promise<string> {
       return cachedWorkspaceHostname;
     }
   } catch (error) {
-    throw new Error(`Unable to determine Databricks workspace hostname: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Unable to determine Databricks workspace hostname: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
 }
 
