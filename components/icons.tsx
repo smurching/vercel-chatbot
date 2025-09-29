@@ -603,7 +603,7 @@ export const MoreHorizontalIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const MessageIcon = ({ size = 16 }: { size?: number }) => {
+const MessageIcon = ({ size = 16 }: { size?: number }) => {
   return (
     <svg
       height={size}
@@ -622,7 +622,7 @@ export const MessageIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const CrossIcon = ({ size = 16 }: { size?: number }) => (
+const CrossIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"
@@ -656,7 +656,7 @@ export const CrossSmallIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-export const UndoIcon = ({ size = 16 }: { size?: number }) => (
+const UndoIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"
@@ -673,7 +673,7 @@ export const UndoIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-export const RedoIcon = ({ size = 16 }: { size?: number }) => (
+const RedoIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"
@@ -731,7 +731,7 @@ export const CpuIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-export const PenIcon = ({ size = 16 }: { size?: number }) => (
+const PenIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"
@@ -748,7 +748,7 @@ export const PenIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-export const SummarizeIcon = ({ size = 16 }: { size?: number }) => (
+const SummarizeIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"
@@ -1004,7 +1004,7 @@ const CodeIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const PlayIcon = ({ size = 16 }: { size?: number }) => {
+const PlayIcon = ({ size = 16 }: { size?: number }) => {
   return (
     <svg
       height={size}
@@ -1044,7 +1044,7 @@ const PythonIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const TerminalWindowIcon = ({ size = 16 }: { size?: number }) => {
+const TerminalWindowIcon = ({ size = 16 }: { size?: number }) => {
   return (
     <svg
       height={size}
@@ -1082,7 +1082,7 @@ const TerminalIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const ClockRewind = ({ size = 16 }: { size?: number }) => {
+const ClockRewind = ({ size = 16 }: { size?: number }) => {
   return (
     <svg
       height={size}
@@ -1101,7 +1101,7 @@ export const ClockRewind = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const LogsIcon = ({ size = 16 }: { size?: number }) => {
+const LogsIcon = ({ size = 16 }: { size?: number }) => {
   return (
     <svg
       height={size}
@@ -1173,7 +1173,7 @@ const DownloadIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-export const LineChartIcon = ({ size = 16 }: { size?: number }) => (
+const LineChartIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
     strokeLinejoin="round"

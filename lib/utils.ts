@@ -71,7 +71,7 @@ function getMostRecentUserMessage(messages: Array<UIMessage>) {
   return userMessages.at(-1);
 }
 
-export function getDocumentTimestampByIndex(
+function getDocumentTimestampByIndex(
   documents: Array<Document>,
   index: number,
 ) {
