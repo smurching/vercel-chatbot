@@ -1,7 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import React, { memo, useState } from 'react';
-import type { Vote } from '@/lib/db/schema';
+import type { Vote } from '@/databricks/db/schema';
 import { SparklesIcon } from './icons';
 import { Response } from './elements/response';
 import { MessageContent } from './elements/message';

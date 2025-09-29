@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { getAuthSessionFromHeaders } from '@/databricks/auth/databricks-auth';
 import { Chat } from '@/components/chat';
-import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
+import { getChatById, getMessagesByChatId } from '@/databricks/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { convertToUIMessages } from '@/lib/utils';

@@ -3,7 +3,7 @@
  * This module does NOT import 'server-only' and can be used with tsx
  */
 
-import { spawnWithOutput } from '@/lib/utils/subprocess';
+import { spawnWithOutput } from '@/databricks/utils/subprocess';
 import { getHostUrl } from '../utils/databricks-host-utils';
 
 export function getAuthMethodDescription(): string {

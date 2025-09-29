@@ -8,7 +8,7 @@ import {
   getDatabricksToken,
   getDatabaseUsername,
 } from '@/databricks/auth/databricks-auth-node';
-import { spawnWithInherit } from '@/lib/utils/subprocess';
+import { spawnWithInherit } from '@/databricks/utils/subprocess';
 import postgres from 'postgres';
 import { join } from 'node:path';
 

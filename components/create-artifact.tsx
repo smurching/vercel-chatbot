@@ -1,4 +1,4 @@
-import type { Suggestion } from '@/lib/db/schema';
+import type { Suggestion } from '@/databricks/db/schema';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ComponentType, Dispatch, ReactNode, SetStateAction } from 'react';
 import type { UIArtifact } from './artifact';

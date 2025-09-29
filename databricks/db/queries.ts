@@ -29,7 +29,7 @@ import {
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import type { VisibilityType } from '@/components/visibility-selector';
-import { ChatSDKError } from '../errors';
+import { ChatSDKError } from '../../lib/errors';
 import type { LanguageModelV2Usage } from '@ai-sdk/provider';
 import { isDatabaseAvailable } from './connection';
 import {

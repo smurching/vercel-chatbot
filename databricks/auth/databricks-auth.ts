@@ -6,7 +6,7 @@ import 'server-only';
  * Also handles user session management and SCIM API interactions
  */
 
-import { getUserFromHeaders } from '@/lib/db/queries';
+import { getUserFromHeaders } from '@/databricks/db/queries';
 import {
   getHostUrl,
   getHostDomain,
@@ -226,7 +226,7 @@ export async function getDatabricksUserIdentity(): Promise<string> {
     return cliUserIdentity;
   }
 
-  const { spawnWithOutput } = await import('@/lib/utils/subprocess');
+  const { spawnWithOutput } = await import('@/databricks/utils/subprocess');
 
   // Get options from environment
   const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;
@@ -298,7 +298,7 @@ export async function getDatabricksCliToken(): Promise<string> {
     return cliToken;
   }
 
-  const { spawnWithOutput } = await import('@/lib/utils/subprocess');
+  const { spawnWithOutput } = await import('@/databricks/utils/subprocess');
 
   // Get options from environment
   const configProfile = process.env.DATABRICKS_CONFIG_PROFILE;

@@ -1,7 +1,7 @@
 import { useSWRConfig } from 'swr';
 import { useCopyToClipboard } from 'usehooks-ts';
 
-import type { Vote } from '@/lib/db/schema';
+import type { Vote } from '@/databricks/db/schema';
 
 import { CopyIcon, PencilEditIcon } from './icons';
 import { Actions, Action } from './elements/actions';

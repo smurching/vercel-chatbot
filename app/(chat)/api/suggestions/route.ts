@@ -1,5 +1,5 @@
 import { getAuthSession } from '@/databricks/auth/databricks-auth';
-import { getSuggestionsByDocumentId } from '@/lib/db/queries';
+import { getSuggestionsByDocumentId } from '@/databricks/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
 export async function GET(request: Request) {

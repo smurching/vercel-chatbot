@@ -5,7 +5,7 @@ import {
   getPostgresUrlFromEnv,
   getDatabaseConfigFromEnv,
   buildConnectionUrl,
-} from '../lib/db/connection-core';
+} from '../databricks/db/connection-core';
 
 config({ path: '.env.local' });
 
