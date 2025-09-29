@@ -256,13 +256,13 @@ export const CodeBlock = ({
   );
 };
 
-export type CodeBlockCopyButtonProps = ComponentProps<'button'> & {
+type CodeBlockCopyButtonProps = ComponentProps<'button'> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
 };
 
-export type CodeBlockDownloadButtonProps = ComponentProps<'button'> & {
+type CodeBlockDownloadButtonProps = ComponentProps<'button'> & {
   onDownload?: () => void;
   onError?: (error: Error) => void;
 };

@@ -24,7 +24,7 @@ export const DocumentSkeleton = ({
   );
 };
 
-export const InlineDocumentSkeleton = () => {
+const InlineDocumentSkeleton = () => {
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="h-4 w-48 animate-pulse rounded-lg bg-muted-foreground/20" />

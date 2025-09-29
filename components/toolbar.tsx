@@ -243,7 +243,7 @@ const ReadingLevelSelector = ({
   );
 };
 
-export const Tools = ({
+const Tools = ({
   isToolbarVisible,
   selectedTool,
   setSelectedTool,

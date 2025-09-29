@@ -23,7 +23,7 @@ type ArtifactAction<M = any> = {
   isDisabled?: (context: ArtifactActionContext<M>) => boolean;
 };
 
-export type ArtifactToolbarContext = {
+type ArtifactToolbarContext = {
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
 };
 

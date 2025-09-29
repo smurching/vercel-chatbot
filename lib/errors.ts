@@ -1,4 +1,4 @@
-export type ErrorType =
+type ErrorType =
   | 'bad_request'
   | 'unauthorized'
   | 'forbidden'
@@ -6,7 +6,7 @@ export type ErrorType =
   | 'rate_limit'
   | 'offline';
 
-export type Surface =
+type Surface =
   | 'chat'
   | 'auth'
   | 'api'
@@ -19,9 +19,9 @@ export type Surface =
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
-export type ErrorVisibility = 'response' | 'log' | 'none';
+type ErrorVisibility = 'response' | 'log' | 'none';
 
-export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
+const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   database: 'log',
   chat: 'response',
   auth: 'response',

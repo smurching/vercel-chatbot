@@ -10,7 +10,7 @@ import equal from 'fast-deep-equal';
 import { toast } from 'sonner';
 import type { ChatMessage } from '@/lib/types';
 
-export function PureMessageActions({
+function PureMessageActions({
   chatId,
   message,
   vote,

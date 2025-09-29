@@ -48,7 +48,7 @@ export async function fetchWithErrorHandlers(
   }
 }
 
-export function getLocalStorage(key: string) {
+function getLocalStorage(key: string) {
   if (typeof window !== 'undefined') {
     return JSON.parse(localStorage.getItem(key) || '[]');
   }
@@ -66,7 +66,7 @@ export function generateUUID(): string {
 type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
 type ResponseMessage = ResponseMessageWithoutId & { id: string };
 
-export function getMostRecentUserMessage(messages: Array<UIMessage>) {
+function getMostRecentUserMessage(messages: Array<UIMessage>) {
   const userMessages = messages.filter((message) => message.role === 'user');
   return userMessages.at(-1);
 }
@@ -81,7 +81,7 @@ export function getDocumentTimestampByIndex(
   return documents[index].createdAt;
 }
 
-export function getTrailingMessageId({
+function getTrailingMessageId({
   messages,
 }: {
   messages: Array<ResponseMessage>;

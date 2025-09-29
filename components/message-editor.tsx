@@ -14,7 +14,7 @@ import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
 import { getTextFromMessage } from '@/lib/utils';
 
-export type MessageEditorProps = {
+type MessageEditorProps = {
   message: ChatMessage;
   setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];

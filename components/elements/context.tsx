@@ -12,7 +12,7 @@ import { breakdownTokens, estimateCost, normalizeUsage } from 'tokenlens';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 
-export type ContextProps = ComponentProps<'button'> & {
+type ContextProps = ComponentProps<'button'> & {
   /** Total context window size in tokens */
   maxTokens: number;
   /** Tokens used so far */
@@ -89,7 +89,7 @@ type ContextIconProps = {
   percent: number; // 0 - 100
 };
 
-export const ContextIcon = ({ percent }: ContextIconProps) => {
+const ContextIcon = ({ percent }: ContextIconProps) => {
   const radius = ICON_RADIUS;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - percent / PERCENT_MAX);

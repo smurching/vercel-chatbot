@@ -8,13 +8,13 @@ import type {
   DATABRICKS_TOOL_DEFINITION,
 } from '../databricks/stream-transformers/databricks-tool-calling';
 
-export type DataPart = { type: 'append-message'; message: string };
+type DataPart = { type: 'append-message'; message: string };
 
-export const messageMetadataSchema = z.object({
+const messageMetadataSchema = z.object({
   createdAt: z.string(),
 });
 
-export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
 export type ChatTools = {
   [K in typeof DATABRICKS_TOOL_CALL_ID]: InferUITool<

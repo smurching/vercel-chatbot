@@ -87,7 +87,7 @@ function tableDataToMarkdown(data: TableData): string {
   return markdownRows.join("\n");
 }
 
-export type TableCopyButtonProps = {
+type TableCopyButtonProps = {
   children?: React.ReactNode;
   className?: string;
   onCopy?: () => void;
@@ -176,7 +176,7 @@ export const TableCopyButton = ({
   );
 };
 
-export type TableDownloadButtonProps = {
+type TableDownloadButtonProps = {
   children?: React.ReactNode;
   className?: string;
   onDownload?: () => void;
@@ -185,7 +185,7 @@ export type TableDownloadButtonProps = {
   filename?: string;
 };
 
-export const TableDownloadButton = ({
+const TableDownloadButton = ({
   children,
   className,
   onDownload,
@@ -260,7 +260,7 @@ export const TableDownloadButton = ({
   );
 };
 
-export type TableDownloadDropdownProps = {
+type TableDownloadDropdownProps = {
   children?: React.ReactNode;
   className?: string;
   onDownload?: (format: "csv" | "markdown") => void;

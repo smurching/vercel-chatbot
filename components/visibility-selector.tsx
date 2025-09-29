@@ -39,7 +39,7 @@ const visibilities: Array<{
   },
 ];
 
-export function VisibilitySelector({
+function VisibilitySelector({
   chatId,
   className,
   selectedVisibilityType,
