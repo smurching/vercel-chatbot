@@ -16,6 +16,8 @@ import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
+import { useStreamReconnect } from '@/hooks/use-stream-reconnect';
+import { useStreamTiming } from '@/hooks/use-stream-timing';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
@@ -123,6 +125,21 @@ export function Chat({
     initialMessages,
     resumeStream,
     setMessages,
+  });
+
+  // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
+  useStreamReconnect({
+    status,
+    resumeStream,
+    messages,
+    inactivityTimeout: 65000, // 65s to detect 60s proxy timeout
+    maxReconnectAttempts: 5,
+  });
+
+  // Track and log streaming timing metrics
+  useStreamTiming({
+    status,
+    messages,
   });
 
   return (

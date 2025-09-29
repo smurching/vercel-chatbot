@@ -37,7 +37,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
-  console.log('CHAT POST REQUEST');
+  console.log('CHAT POST REQUEST ' + Date.now());
 
   try {
     const json = await request.json();
