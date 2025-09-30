@@ -1,8 +1,9 @@
 /**
- * In-memory stream cache for resumable streams.
+ * In-memory stream cache for resumable streams using pub/sub pattern.
  *
  * This provides a simple in-memory alternative to Redis for stream resumption.
- * Streams are stored with a TTL and automatically cleaned up.
+ * Uses ReadableStream tee-ing to allow multiple clients to subscribe to the
+ * same ongoing stream.
  *
  * Note: This is not suitable for distributed deployments. For production
  * with multiple instances, use Redis or another distributed cache.
@@ -11,9 +12,10 @@
 interface CachedStream {
   chatId: string;
   streamId: string;
-  chunks: Uint8Array[];
+  stream: ReadableStream<Uint8Array>;
   createdAt: number;
   lastAccessedAt: number;
+  subscribers: number;
 }
 
 export class StreamCache {
@@ -61,28 +63,36 @@ export class StreamCache {
   }
 
   /**
-   * Store a stream chunk
+   * Store a stream for resumption. The stream will be tee'd to allow
+   * multiple subscribers.
    */
-  storeChunk(streamId: string, chatId: string, chunk: Uint8Array): void {
-    let stream = this.cache.get(streamId);
-
-    if (!stream) {
-      stream = {
-        chatId,
-        streamId,
-        chunks: [],
-        createdAt: Date.now(),
-        lastAccessedAt: Date.now(),
-      };
-      this.cache.set(streamId, stream);
-      this.activeStreams.set(chatId, streamId);
-      console.log(
-        `[StreamCache] Created new stream ${streamId} for chat ${chatId}`,
+  storeStream(
+    streamId: string,
+    chatId: string,
+    stream: ReadableStream<Uint8Array>,
+  ): void {
+    // Check if stream already exists
+    if (this.cache.has(streamId)) {
+      console.warn(
+        `[StreamCache] Stream ${streamId} already exists, not replacing`,
       );
+      return;
     }
 
-    stream.chunks.push(chunk);
-    stream.lastAccessedAt = Date.now();
+    const cachedStream: CachedStream = {
+      chatId,
+      streamId,
+      stream,
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now(),
+      subscribers: 0,
+    };
+
+    this.cache.set(streamId, cachedStream);
+    this.activeStreams.set(chatId, streamId);
+    console.log(
+      `[StreamCache] Stored stream ${streamId} for chat ${chatId}`,
+    );
   }
 
   /**
@@ -93,14 +103,31 @@ export class StreamCache {
   }
 
   /**
-   * Get all chunks for a stream
+   * Subscribe to a stream. Returns a tee'd copy of the stream that can be
+   * consumed independently. Returns null if stream doesn't exist.
    */
-  getStreamChunks(streamId: string): Uint8Array[] | null {
-    const stream = this.cache.get(streamId);
-    if (!stream) return null;
+  subscribeToStream(streamId: string): ReadableStream<Uint8Array> | null {
+    const cached = this.cache.get(streamId);
+    if (!cached) {
+      console.log(`[StreamCache] Stream ${streamId} not found`);
+      return null;
+    }
 
-    stream.lastAccessedAt = Date.now();
-    return stream.chunks;
+    cached.lastAccessedAt = Date.now();
+    cached.subscribers += 1;
+
+    // Tee the stream to create a new independent copy
+    const [stream1, stream2] = cached.stream.tee();
+
+    // Store one copy back for future subscribers
+    cached.stream = stream1;
+
+    console.log(
+      `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}`,
+    );
+
+    // Return the other copy to this subscriber
+    return stream2;
   }
 
   /**
@@ -141,7 +168,7 @@ export class StreamCache {
       streams: Array.from(this.cache.values()).map((s) => ({
         streamId: s.streamId,
         chatId: s.chatId,
-        chunks: s.chunks.length,
+        subscribers: s.subscribers,
         ageMs: Date.now() - s.createdAt,
       })),
     };

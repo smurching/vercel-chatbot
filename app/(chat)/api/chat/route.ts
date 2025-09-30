@@ -183,30 +183,10 @@ export async function POST(request: Request) {
         return 'Oops, an error occurred!';
       },
       async consumeSseStream({ stream: sseStream }) {
-        // Cache each chunk of the SSE stream for resumption
-        // This runs in the background and doesn't block the response
-        const reader = sseStream.getReader();
-
-        // Start reading in the background (don't await)
-        (async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                console.log(`[StreamCache] Finished caching stream ${streamId}`);
-                break;
-              }
-
-              // Store the raw chunk in the stream cache
-              console.log(`[StreamCache] Caching chunk for stream`, streamId);
-              streamCache.storeChunk(streamId, id, value);
-            }
-          } catch (error) {
-            console.error(`[StreamCache] Error caching stream ${streamId}:`, error);
-          } finally {
-            reader.releaseLock();
-          }
-        })();
+        // Store the stream for resumption using pub/sub pattern
+        // Tee the stream so we can store it while it continues streaming
+        console.log(`[StreamCache] Storing stream ${streamId} for chat ${id}`);
+        streamCache.storeStream(streamId, id, sseStream);
       },
     });
   } catch (error) {
