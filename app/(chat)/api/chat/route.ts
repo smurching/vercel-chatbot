@@ -31,6 +31,7 @@ import {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
 } from '@/databricks/stream-transformers/databricks-tool-calling';
+import { streamCache } from '@/lib/stream-cache';
 
 export const maxDuration = 60;
 
@@ -111,7 +112,11 @@ export async function POST(request: Request) {
       ],
     });
 
+    // Clear any previous active stream for this chat
+    streamCache.clearActiveStream(id);
+
     let finalUsage: LanguageModelUsage | undefined;
+    const streamId = generateUUID();
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
@@ -160,6 +165,9 @@ export async function POST(request: Request) {
             console.warn('Unable to persist last usage for chat', id, err);
           }
         }
+
+        // Mark stream as complete and remove from cache
+        streamCache.completeStream(streamId);
       },
       onError: (error) => {
         console.error('Stream error:', error);
@@ -167,7 +175,28 @@ export async function POST(request: Request) {
           'Stack trace:',
           error instanceof Error ? error.stack : 'No stack',
         );
+
+        // Clean up stream on error
+        streamCache.completeStream(streamId);
+
         return 'Oops, an error occurred!';
+      },
+      async consumeSseStream({ stream: sseStream }) {
+        // Cache each chunk of the SSE stream for resumption
+        const reader = sseStream.getReader();
+        const encoder = new TextEncoder();
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // Store the raw chunk in the stream cache
+            streamCache.storeChunk(streamId, id, value);
+          }
+        } finally {
+          reader.releaseLock();
+        }
       },
     });
 

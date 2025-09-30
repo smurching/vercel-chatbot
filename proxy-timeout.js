@@ -15,7 +15,7 @@ import httpProxy from 'http-proxy';
 
 const TARGET_PORT = 3000; // Next.js dev server port
 const PROXY_PORT = 4000;
-const TIMEOUT_MS = 60000; // 60 seconds
+const TIMEOUT_MS = 5 * 1000; // 5 seconds
 
 const proxy = httpProxy.createProxyServer({
   target: `http://localhost:${TARGET_PORT}`,

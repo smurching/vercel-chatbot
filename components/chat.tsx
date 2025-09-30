@@ -67,6 +67,7 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
+    resume: true, // Enable automatic stream resumption
     transport: new DefaultChatTransport({
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
@@ -79,6 +80,12 @@ export function Chat({
             selectedVisibilityType: visibilityType,
             ...body,
           },
+        };
+      },
+      prepareReconnectToStreamRequest({ id }) {
+        return {
+          api: `/api/chat/${id}/stream`,
+          credentials: 'include',
         };
       },
     }),
