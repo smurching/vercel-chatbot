@@ -1,5 +1,7 @@
-// import { registerOTel } from '@vercel/otel';
+import { StreamCache } from './lib/stream-cache';
 
-// export function register() {
-//   registerOTel({ serviceName: 'ai-chatbot' });
-// }
+declare global {
+  var streamCache: StreamCache;
+}
+
+globalThis.streamCache = new StreamCache();

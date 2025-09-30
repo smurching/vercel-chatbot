@@ -16,13 +16,14 @@ interface CachedStream {
   lastAccessedAt: number;
 }
 
-class StreamCache {
+export class StreamCache {
   private cache = new Map<string, CachedStream>();
   private activeStreams = new Map<string, string>(); // chatId -> streamId
   private readonly TTL_MS = 5 * 60 * 1000; // 5 minutes
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
+    console.log('[StreamCache] constructor');
     // Start cleanup interval to remove expired streams
     this.startCleanup();
   }
@@ -45,12 +46,16 @@ class StreamCache {
         if (stream) {
           this.activeStreams.delete(stream.chatId);
           this.cache.delete(streamId);
-          console.log(`[StreamCache] Expired stream ${streamId} for chat ${stream.chatId}`);
+          console.log(
+            `[StreamCache] Expired stream ${streamId} for chat ${stream.chatId}`,
+          );
         }
       }
 
       if (expiredKeys.length > 0) {
-        console.log(`[StreamCache] Cleaned up ${expiredKeys.length} expired streams`);
+        console.log(
+          `[StreamCache] Cleaned up ${expiredKeys.length} expired streams`,
+        );
       }
     }, 60 * 1000); // Check every minute
   }
@@ -71,7 +76,9 @@ class StreamCache {
       };
       this.cache.set(streamId, stream);
       this.activeStreams.set(chatId, streamId);
-      console.log(`[StreamCache] Created new stream ${streamId} for chat ${chatId}`);
+      console.log(
+        `[StreamCache] Created new stream ${streamId} for chat ${chatId}`,
+      );
     }
 
     stream.chunks.push(chunk);
@@ -104,7 +111,9 @@ class StreamCache {
     if (stream) {
       this.activeStreams.delete(stream.chatId);
       this.cache.delete(streamId);
-      console.log(`[StreamCache] Completed and removed stream ${streamId} for chat ${stream.chatId}`);
+      console.log(
+        `[StreamCache] Completed and removed stream ${streamId} for chat ${stream.chatId}`,
+      );
     }
   }
 
@@ -116,7 +125,9 @@ class StreamCache {
     if (streamId) {
       this.cache.delete(streamId);
       this.activeStreams.delete(chatId);
-      console.log(`[StreamCache] Cleared active stream ${streamId} for chat ${chatId}`);
+      console.log(
+        `[StreamCache] Cleared active stream ${streamId} for chat ${chatId}`,
+      );
     }
   }
 
@@ -127,7 +138,7 @@ class StreamCache {
     return {
       totalStreams: this.cache.size,
       activeChats: this.activeStreams.size,
-      streams: Array.from(this.cache.values()).map(s => ({
+      streams: Array.from(this.cache.values()).map((s) => ({
         streamId: s.streamId,
         chatId: s.chatId,
         chunks: s.chunks.length,
@@ -149,5 +160,8 @@ class StreamCache {
   }
 }
 
-// Singleton instance
-export const streamCache = new StreamCache();
+/**
+ * Using globalThis instantiated in instrumentation.ts to make sure
+ * we have a single instance of the stream cache.
+ */
+export const streamCache = globalThis.streamCache;
