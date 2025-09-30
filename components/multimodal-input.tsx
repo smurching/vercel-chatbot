@@ -347,6 +347,7 @@ function PureMultimodalInput({
         onSubmit={(event) => {
           event.preventDefault();
           if (status !== 'ready') {
+            console.log('status', status);
             toast.error('Please wait for the model to finish its response!');
           } else {
             submitForm();
