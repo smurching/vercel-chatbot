@@ -28,34 +28,14 @@ export async function GET(
   }
 
   // Get all cached chunks for this stream
-  const chunks = streamCache.getStreamChunks(streamId);
+  const stream = streamCache.getStream(streamId);
 
-  if (!chunks || chunks.length === 0) {
-    console.log(`[Stream Resume] No chunks found for stream ${streamId}`);
+  if (!stream) {
+    console.log(`[Stream Resume] No stream found for ${streamId}`);
     return new Response(null, { status: 204 });
   }
 
-  console.log(`[Stream Resume] Resuming stream ${streamId} with ${chunks.length} chunks`);
-
-  // Create a readable stream that replays all cached chunks
-  const stream = new ReadableStream({
-    start(controller) {
-      try {
-        // Send all cached chunks
-        for (const chunk of chunks) {
-          controller.enqueue(chunk);
-        }
-
-        console.log(`[Stream Resume] Sent ${chunks.length} chunks for stream ${streamId}`);
-
-        // Note: We don't close the controller here because the stream might still be active
-        // The actual stream will close when it completes naturally
-      } catch (error) {
-        console.error('[Stream Resume] Error replaying chunks:', error);
-        controller.error(error);
-      }
-    },
-  });
+  console.log(`[Stream Resume] Resuming stream ${streamId}`);
 
   return new Response(stream, {
     status: 200,

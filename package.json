@@ -10,7 +10,7 @@
     "lint:fix": "biome lint --write --unsafe && biome format --write",
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "npx tsx lib/db/migrate.ts",
+    "db:migrate": "npx tsx databricks/db/migrate.ts",
     "db:reset": "npx tsx scripts/reset-database.ts",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",

@@ -36,7 +36,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
-  console.log('CHAT POST REQUEST ' + Date.now());
+  console.log(`CHAT POST REQUEST ${Date.now()}`);
 
   try {
     const json = await request.json();
@@ -135,16 +135,12 @@ export async function POST(request: Request) {
       generateMessageId: generateUUID,
       sendReasoning: true,
       sendSources: true,
-      onData: (dataPart) => {
-        if (dataPart.type === 'finish' && finalUsage) {
-          // Send usage data to client
-          return { type: 'data-usage', data: finalUsage };
-        }
-      },
       onFinish: async ({ messages }) => {
         console.log('Finished message stream! Saving messages...');
         // Only save assistant messages - user message was already saved above
-        const assistantMessages = messages.filter(m => m.role === 'assistant');
+        const assistantMessages = messages.filter(
+          (m) => m.role === 'assistant',
+        );
         await saveMessages({
           messages: assistantMessages.map((message) => ({
             id: message.id,
@@ -182,31 +178,12 @@ export async function POST(request: Request) {
 
         return 'Oops, an error occurred!';
       },
-      async consumeSseStream({ stream: sseStream }) {
-        // Cache each chunk of the SSE stream for resumption
-        // This runs in the background and doesn't block the response
-        const reader = sseStream.getReader();
-
-        // Start reading in the background (don't await)
-        (async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                console.log(`[StreamCache] Finished caching stream ${streamId}`);
-                break;
-              }
-
-              // Store the raw chunk in the stream cache
-              console.log(`[StreamCache] Caching chunk for stream`, streamId);
-              streamCache.storeChunk(streamId, id, value);
-            }
-          } catch (error) {
-            console.error(`[StreamCache] Error caching stream ${streamId}:`, error);
-          } finally {
-            reader.releaseLock();
-          }
-        })();
+      consumeSseStream({ stream }) {
+        streamCache.storeStream({
+          streamId,
+          chatId: id,
+          stream,
+        });
       },
     });
   } catch (error) {

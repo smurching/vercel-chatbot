@@ -15,7 +15,6 @@ import { toast } from './toast';
 import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
-import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useStreamReconnect } from '@/hooks/use-stream-reconnect';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
@@ -110,7 +109,9 @@ export function Chat({
         });
       } else {
         // Network error - the backend will continue streaming and save the full response
-        console.warn('[Chat onError] Network error during streaming. Backend will complete the response.');
+        console.warn(
+          '[Chat onError] Network error during streaming. Backend will complete the response.',
+        );
       }
     },
   });
@@ -134,21 +135,14 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  useAutoResume({
-    autoResume,
-    initialMessages,
-    resumeStream,
-    setMessages,
-  });
-
   // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
-  useStreamReconnect({
-    status,
-    resumeStream,
-    messages,
-    inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
-    maxReconnectAttempts: 5,
-  });
+  // useStreamReconnect({
+  //   status,
+  //   resumeStream,
+  //   messages,
+  //   inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
+  //   maxReconnectAttempts: 5,
+  // });
 
   return (
     <>
