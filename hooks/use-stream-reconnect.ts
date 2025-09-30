@@ -53,6 +53,7 @@ export function useStreamReconnect({
     if (status !== 'streaming') {
       reconnectAttemptsRef.current = 0;
       isReconnectingRef.current = false;
+      debugger;
       return;
     }
 
@@ -63,7 +64,9 @@ export function useStreamReconnect({
     }
 
     // Set up inactivity timer
+    debugger;
     inactivityTimerRef.current = setTimeout(() => {
+      debugger;
       // Check if we've exceeded max reconnection attempts
       if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
         console.warn(

@@ -139,7 +139,7 @@ export function Chat({
     status,
     resumeStream,
     messages,
-    inactivityTimeout: 65000, // 65s to detect 60s proxy timeout
+    inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
     maxReconnectAttempts: 5,
   });
 

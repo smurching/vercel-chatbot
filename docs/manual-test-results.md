@@ -248,3 +248,30 @@ In the proxy I don't see any attempts to resume the stream:
 [Proxy] ⏱️  Connection timeout after 10000ms for /api/chat
 [Proxy] Connection closed by proxy for /api/chat
 ```
+
+I added some debugger statements to the useReconnectStream logic and found that it doesn't actually seem to
+retry to connect the stream if the original was cancelled/put into an 'error' state due to an upstream disconnect.
+
+In the chrome devtools I see the following (status goes from ready -> submitted -> error):
+
+status
+'submitted'
+react-dom-client.development.js:16842 [Violation] 'click' handler took 4345ms
+utils.ts:34  POST http://localhost:4000/api/chat net::ERR_INCOMPLETE_CHUNKED_ENCODING 200 (OK)
+fetchWithErrorHandlers @ utils.ts:34
+sendMessages @ http-chat-transport.ts:189
+await in sendMessages
+makeRequest @ chat.ts:508
+AbstractChat.sendMessage @ chat.ts:345
+onClick @ suggested-actions.tsx:43
+handleClick @ suggestion.tsx:38
+executeDispatch @ react-dom-client.development.js:16970
+runWithFiberInDEV @ react-dom-client.development.js:871
+processDispatchQueue @ react-dom-client.development.js:17020
+(anonymous) @ react-dom-client.development.js:17621
+batchedUpdates$1 @ react-dom-client.development.js:3311
+dispatchEventForPluginEventSystem @ react-dom-client.development.js:17174
+dispatchEvent @ react-dom-client.development.js:21357
+dispatchDiscreteEvent @ react-dom-client.development.js:21325Understand this error
+status
+'error'
