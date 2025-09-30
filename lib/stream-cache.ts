@@ -1,9 +1,12 @@
 /**
- * In-memory stream cache for resumable streams using pub/sub pattern.
+ * In-memory stream cache for resumable streams using hybrid pub/sub pattern.
  *
  * This provides a simple in-memory alternative to Redis for stream resumption.
  * Uses ReadableStream tee-ing to allow multiple clients to subscribe to the
- * same ongoing stream.
+ * same ongoing stream, while also caching chunks to support page refreshes.
+ *
+ * When a client subscribes, they first receive all previously cached chunks,
+ * then continue receiving new chunks as they arrive from the live stream.
  *
  * Note: This is not suitable for distributed deployments. For production
  * with multiple instances, use Redis or another distributed cache.
@@ -13,6 +16,7 @@ interface CachedStream {
   chatId: string;
   streamId: string;
   stream: ReadableStream<Uint8Array>;
+  chunks: Uint8Array[]; // Cached chunks for replay on page refresh
   createdAt: number;
   lastAccessedAt: number;
   subscribers: number;
@@ -64,7 +68,7 @@ export class StreamCache {
 
   /**
    * Store a stream for resumption. The stream will be tee'd to allow
-   * multiple subscribers.
+   * multiple subscribers, and chunks will be cached for page refresh support.
    */
   storeStream(
     streamId: string,
@@ -79,10 +83,14 @@ export class StreamCache {
       return;
     }
 
+    // Tee the stream - one copy for caching chunks, one for subscribers
+    const [cachingStream, subscriberStream] = stream.tee();
+
     const cachedStream: CachedStream = {
       chatId,
       streamId,
-      stream,
+      stream: subscriberStream,
+      chunks: [],
       createdAt: Date.now(),
       lastAccessedAt: Date.now(),
       subscribers: 0,
@@ -93,6 +101,30 @@ export class StreamCache {
     console.log(
       `[StreamCache] Stored stream ${streamId} for chat ${chatId}`,
     );
+
+    // Start caching chunks in the background
+    (async () => {
+      const reader = cachingStream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log(
+              `[StreamCache] Finished caching ${cachedStream.chunks.length} chunks for stream ${streamId}`,
+            );
+            break;
+          }
+          cachedStream.chunks.push(value);
+        }
+      } catch (error) {
+        console.error(
+          `[StreamCache] Error caching chunks for stream ${streamId}:`,
+          error,
+        );
+      } finally {
+        reader.releaseLock();
+      }
+    })();
   }
 
   /**
@@ -103,8 +135,10 @@ export class StreamCache {
   }
 
   /**
-   * Subscribe to a stream. Returns a tee'd copy of the stream that can be
-   * consumed independently. Returns null if stream doesn't exist.
+   * Subscribe to a stream. Returns a stream that first replays all cached
+   * chunks, then continues with live chunks from the ongoing stream.
+   * This supports both page refreshes (replay history) and mid-stream
+   * reconnections (continue from current position).
    */
   subscribeToStream(streamId: string): ReadableStream<Uint8Array> | null {
     const cached = this.cache.get(streamId);
@@ -116,18 +150,62 @@ export class StreamCache {
     cached.lastAccessedAt = Date.now();
     cached.subscribers += 1;
 
-    // Tee the stream to create a new independent copy
+    // Tee the live stream to create a new independent copy
     const [stream1, stream2] = cached.stream.tee();
 
     // Store one copy back for future subscribers
     cached.stream = stream1;
 
+    // Capture cached chunks at subscription time
+    const cachedChunks = [...cached.chunks];
+
     console.log(
-      `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}`,
+      `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}, replaying ${cachedChunks.length} cached chunks`,
     );
 
-    // Return the other copy to this subscriber
-    return stream2;
+    // Create a new stream that first replays cached chunks, then continues with live stream
+    const hybridStream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          // First, enqueue all cached chunks
+          for (const chunk of cachedChunks) {
+            controller.enqueue(chunk);
+          }
+
+          if (cachedChunks.length > 0) {
+            console.log(
+              `[StreamCache] Replayed ${cachedChunks.length} cached chunks for stream ${streamId}`,
+            );
+          }
+
+          // Then, continue with live stream
+          const reader = stream2.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log(
+                  `[StreamCache] Live stream completed for subscriber to ${streamId}`,
+                );
+                controller.close();
+                break;
+              }
+              controller.enqueue(value);
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        } catch (error) {
+          console.error(
+            `[StreamCache] Error in hybrid stream for ${streamId}:`,
+            error,
+          );
+          controller.error(error);
+        }
+      },
+    });
+
+    return hybridStream;
   }
 
   /**
@@ -169,6 +247,7 @@ export class StreamCache {
         streamId: s.streamId,
         chatId: s.chatId,
         subscribers: s.subscribers,
+        cachedChunks: s.chunks.length,
         ageMs: Date.now() - s.createdAt,
       })),
     };
