@@ -183,20 +183,28 @@ export async function POST(request: Request) {
       },
       async consumeSseStream({ stream: sseStream }) {
         // Cache each chunk of the SSE stream for resumption
+        // This runs in the background and doesn't block the response
         const reader = sseStream.getReader();
-        const encoder = new TextEncoder();
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        // Start reading in the background (don't await)
+        (async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log(`[StreamCache] Finished caching stream ${streamId}`);
+                break;
+              }
 
-            // Store the raw chunk in the stream cache
-            streamCache.storeChunk(streamId, id, value);
+              // Store the raw chunk in the stream cache
+              streamCache.storeChunk(streamId, id, value);
+            }
+          } catch (error) {
+            console.error(`[StreamCache] Error caching stream ${streamId}:`, error);
+          } finally {
+            reader.releaseLock();
           }
-        } finally {
-          reader.releaseLock();
-        }
+        })();
       },
     });
 
