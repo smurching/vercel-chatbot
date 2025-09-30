@@ -34,7 +34,7 @@ export async function GET(
   const streamId = streamCache.getActiveStreamId(chatId);
 
   if (!streamId) {
-    console.log(`[Stream Resume] No active stream for chat ${chatId}`);
+    // console.log(`[Stream Resume] No active stream for chat ${chatId}`);
     return new Response(null, { status: 204 });
   }
 
@@ -43,7 +43,7 @@ export async function GET(
   const stream = streamCache.subscribeToStream(streamId, cursor);
 
   if (!stream) {
-    console.log(`[Stream Resume] Stream ${streamId} not found in cache`);
+    // console.log(`[Stream Resume] Stream ${streamId} not found in cache`);
     return new Response(null, { status: 204 });
   }
 

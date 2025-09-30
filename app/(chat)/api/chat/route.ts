@@ -36,7 +36,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
-  console.log('CHAT POST REQUEST ' + Date.now());
+  // console.log('CHAT POST REQUEST ' + Date.now());
 
   try {
     const json = await request.json();
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         }
       },
       onFinish: async ({ messages }) => {
-        console.log('Finished message stream! Saving messages...');
+        // console.log('Finished message stream! Saving messages...');
         // Only save assistant messages - user message was already saved above
         const assistantMessages = messages.filter(m => m.role === 'assistant');
         await saveMessages({
@@ -186,8 +186,6 @@ export async function POST(request: Request) {
         // Store the stream for resumption using pub/sub pattern
         // Tee the stream so we can store it while it continues streaming
         console.log(`[StreamCache] Storing stream ${streamId} for chat ${id}`);
-        console.log(`[StreamCache] sseStream type:`, typeof sseStream);
-        console.log(`[StreamCache] sseStream is ReadableStream:`, sseStream instanceof ReadableStream);
 
         if (!sseStream) {
           console.error('[StreamCache] sseStream is undefined/null!');

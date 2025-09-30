@@ -29,7 +29,7 @@ export class StreamCache {
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    console.log('[StreamCache] constructor');
+    // console.log('[StreamCache] constructor');
     // Start cleanup interval to remove expired streams
     this.startCleanup();
   }
@@ -52,17 +52,17 @@ export class StreamCache {
         if (stream) {
           this.activeStreams.delete(stream.chatId);
           this.cache.delete(streamId);
-          console.log(
-            `[StreamCache] Expired stream ${streamId} for chat ${stream.chatId}`,
-          );
+          // console.log(
+          //   `[StreamCache] Expired stream ${streamId} for chat ${stream.chatId}`,
+          // );
         }
       }
 
-      if (expiredKeys.length > 0) {
-        console.log(
-          `[StreamCache] Cleaned up ${expiredKeys.length} expired streams`,
-        );
-      }
+      // if (expiredKeys.length > 0) {
+      //   console.log(
+      //     `[StreamCache] Cleaned up ${expiredKeys.length} expired streams`,
+      //   );
+      // }
     }, 60 * 1000); // Check every minute
   }
 
@@ -77,9 +77,9 @@ export class StreamCache {
   ): void {
     // Check if stream already exists
     if (this.cache.has(streamId)) {
-      console.warn(
-        `[StreamCache] Stream ${streamId} already exists, not replacing`,
-      );
+      // console.warn(
+      //   `[StreamCache] Stream ${streamId} already exists, not replacing`,
+      // );
       return;
     }
 
@@ -181,12 +181,12 @@ export class StreamCache {
             controller.enqueue(chunk);
           }
 
-          if (chunksToReplay.length > 0) {
-            console.log(
-              `[StreamCache] Replayed ${chunksToReplay.length} cached chunks ` +
-                `for stream ${streamId} (from cursor ${cursor})`,
-            );
-          }
+          // if (chunksToReplay.length > 0) {
+          //   console.log(
+          //     `[StreamCache] Replayed ${chunksToReplay.length} cached chunks ` +
+          //       `for stream ${streamId} (from cursor ${cursor})`,
+          //   );
+          // }
 
           // Then, continue with live stream
           const reader = stream2.getReader();
@@ -240,9 +240,9 @@ export class StreamCache {
     if (streamId) {
       this.cache.delete(streamId);
       this.activeStreams.delete(chatId);
-      console.log(
-        `[StreamCache] Cleared active stream ${streamId} for chat ${chatId}`,
-      );
+      // console.log(
+      //   `[StreamCache] Cleared active stream ${streamId} for chat ${chatId}`,
+      // );
     }
   }
 

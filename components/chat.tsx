@@ -98,6 +98,7 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
+      console.log('[Chat onData] Received data part:', dataPart);
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       if (dataPart.type === 'data-usage') {
         setUsage(dataPart.data);
@@ -111,7 +112,7 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      console.log('[Chat onError] Error occurred:', error);
+      // console.log('[Chat onError] Error occurred:', error);
 
       if (error instanceof ChatSDKError) {
         toast({
@@ -173,7 +174,7 @@ export function Chat({
           retryCountRef.current = 0;
           retryingRef.current = false;
         } catch (error) {
-          console.error('[Chat] Retry failed:', error);
+          // console.error('[Chat] Retry failed:', error);
           retryCountRef.current++;
           retryingRef.current = false;
 
