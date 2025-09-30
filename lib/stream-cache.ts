@@ -135,12 +135,19 @@ export class StreamCache {
   }
 
   /**
-   * Subscribe to a stream. Returns a stream that first replays all cached
-   * chunks, then continues with live chunks from the ongoing stream.
-   * This supports both page refreshes (replay history) and mid-stream
-   * reconnections (continue from current position).
+   * Subscribe to a stream with cursor-based replay. Returns a stream that first
+   * replays cached chunks starting from the cursor position, then continues with
+   * live chunks from the ongoing stream.
+   *
+   * @param streamId - The ID of the stream to subscribe to
+   * @param cursor - The chunk index to start from (0-based). Chunks before this
+   *                 index are skipped, preventing duplicate content on reconnection.
+   * @returns ReadableStream starting from cursor position, or null if stream not found
    */
-  subscribeToStream(streamId: string): ReadableStream<Uint8Array> | null {
+  subscribeToStream(
+    streamId: string,
+    cursor: number = 0,
+  ): ReadableStream<Uint8Array> | null {
     const cached = this.cache.get(streamId);
     if (!cached) {
       console.log(`[StreamCache] Stream ${streamId} not found`);
@@ -156,25 +163,28 @@ export class StreamCache {
     // Store one copy back for future subscribers
     cached.stream = stream1;
 
-    // Capture cached chunks at subscription time
-    const cachedChunks = [...cached.chunks];
+    // Get chunks starting from cursor position
+    const chunksToReplay = cached.chunks.slice(cursor);
 
     console.log(
-      `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}, replaying ${cachedChunks.length} cached chunks`,
+      `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}, ` +
+        `cursor=${cursor}, replaying ${chunksToReplay.length} chunks ` +
+        `(skipped ${cursor} chunks)`,
     );
 
-    // Create a new stream that first replays cached chunks, then continues with live stream
-    const hybridStream = new ReadableStream<Uint8Array>({
+    // Create a new stream that first replays chunks from cursor, then continues with live stream
+    const cursorStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          // First, enqueue all cached chunks
-          for (const chunk of cachedChunks) {
+          // First, enqueue cached chunks starting from cursor
+          for (const chunk of chunksToReplay) {
             controller.enqueue(chunk);
           }
 
-          if (cachedChunks.length > 0) {
+          if (chunksToReplay.length > 0) {
             console.log(
-              `[StreamCache] Replayed ${cachedChunks.length} cached chunks for stream ${streamId}`,
+              `[StreamCache] Replayed ${chunksToReplay.length} cached chunks ` +
+                `for stream ${streamId} (from cursor ${cursor})`,
             );
           }
 
@@ -197,7 +207,7 @@ export class StreamCache {
           }
         } catch (error) {
           console.error(
-            `[StreamCache] Error in hybrid stream for ${streamId}:`,
+            `[StreamCache] Error in cursor stream for ${streamId}:`,
             error,
           );
           controller.error(error);
@@ -205,7 +215,7 @@ export class StreamCache {
       },
     });
 
-    return hybridStream;
+    return cursorStream;
   }
 
   /**
