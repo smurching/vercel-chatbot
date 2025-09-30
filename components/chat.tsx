@@ -74,7 +74,6 @@ export function Chat({
     generateId: generateUUID,
     resume: true, // Enable automatic stream resumption
     transport: new DefaultChatTransport({
-      api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
         return {
