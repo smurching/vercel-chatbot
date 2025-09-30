@@ -52,10 +52,11 @@ export function Chat({
     initialLastContext,
   );
 
-  // Cursor-based stream resumption to prevent duplicate content
-  const cursorRef = useRef(0);
+  // Client-side deduplication to prevent duplicate content
   const retryingRef = useRef(false);
   const retryCountRef = useRef(0);
+  const seenChunkIds = useRef(new Set<string>());
+  const lastContentLength = useRef(0);
   const MAX_RETRIES = 5;
   const INITIAL_RETRY_DELAY = 1000; // 1 second
 
@@ -87,25 +88,30 @@ export function Chat({
         };
       },
       prepareReconnectToStreamRequest({ id }) {
-        // Include cursor parameter to prevent duplicate chunks
-        const cursor = cursorRef.current;
-        console.log(`[Chat] Preparing reconnect with cursor=${cursor}`);
+        console.log(`[Chat] Preparing reconnect request`);
         return {
-          api: `/api/chat/${id}/stream?cursor=${cursor}`,
+          api: `/api/chat/${id}/stream`,
           credentials: 'include',
         };
       },
     }),
     onData: (dataPart) => {
       console.log('[Chat onData] Received data part:', dataPart);
+
+      // Track chunk IDs to detect duplicates
+      if ('id' in dataPart && dataPart.id) {
+        const chunkId = String(dataPart.id);
+        if (seenChunkIds.current.has(chunkId)) {
+          console.log(`[Chat] Skipping duplicate chunk ID: ${chunkId}`);
+          return; // Skip this duplicate chunk
+        }
+        seenChunkIds.current.add(chunkId);
+      }
+
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       if (dataPart.type === 'data-usage') {
         setUsage(dataPart.data);
       }
-      // Track cursor position for each chunk received
-      // if (dataPart.type === 'text-delta' || dataPart.type === 'tool-call-delta' || dataPart.type === 'tool-result') {
-      cursorRef.current++;
-      // }
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
@@ -151,7 +157,39 @@ export function Chat({
     setMessages,
   });
 
-  // Cursor-based retry logic for handling connection breaks
+  // Deduplicate by keeping only content after the last 'step-start'
+  // Each retry adds a new 'step-start', so we only show the latest attempt
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== 'assistant') return;
+
+    // Find the index of the last 'step-start' marker
+    let lastStepStartIndex = -1;
+    for (let i = lastMessage.parts.length - 1; i >= 0; i--) {
+      if (lastMessage.parts[i].type === 'step-start') {
+        lastStepStartIndex = i;
+        break;
+      }
+    }
+
+    // If we found a step-start and there are parts before it, keep only parts after it
+    if (lastStepStartIndex > 0) {
+      console.log(`[Chat] Found step-start at index ${lastStepStartIndex}, removing ${lastStepStartIndex} duplicate parts`);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastMsg = updated[updated.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          // Keep only parts from the last step-start onwards
+          lastMsg.parts = lastMsg.parts.slice(lastStepStartIndex);
+        }
+        return updated;
+      });
+    }
+  }, [messages, setMessages]);
+
+  // Retry logic for handling connection breaks
   useEffect(() => {
     // Only retry when actively streaming and an error occurs
     if (status === 'error' && !retryingRef.current && retryCountRef.current < MAX_RETRIES) {
@@ -159,14 +197,14 @@ export function Chat({
       const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, retryCountRef.current);
 
       console.log(
-        `[Chat] Connection error detected, retrying from cursor ${cursorRef.current} ` +
+        `[Chat] Connection error detected, retrying ` +
         `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES}) after ${retryDelay}ms`
       );
 
       const timer = setTimeout(() => {
         try {
-          // Use AI SDK's resumeStream() which will call prepareReconnectToStreamRequest
-          // with our cursor parameter to prevent duplicate chunks
+          // Use AI SDK's resumeStream() to reconnect
+          // The backend will replay all cached chunks, but we deduplicate on client
           resumeStream();
 
           // Reset retry counter on successful call (actual success determined by stream)
@@ -190,10 +228,11 @@ export function Chat({
       return () => clearTimeout(timer);
     }
 
-    // Reset cursor when starting new stream
+    // Reset state when starting new stream
     if (status === 'streaming') {
-      cursorRef.current = 0;
       retryCountRef.current = 0;
+      lastContentLength.current = 0;
+      seenChunkIds.current.clear();
     }
   }, [status, resumeStream]);
 
