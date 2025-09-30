@@ -143,8 +143,10 @@ export async function POST(request: Request) {
       },
       onFinish: async ({ messages }) => {
         console.log('Finished message stream! Saving messages...');
+        // Only save assistant messages - user message was already saved above
+        const assistantMessages = messages.filter(m => m.role === 'assistant');
         await saveMessages({
-          messages: messages.map((message) => ({
+          messages: assistantMessages.map((message) => ({
             id: message.id,
             role: message.role,
             parts: message.parts,
