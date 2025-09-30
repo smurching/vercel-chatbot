@@ -341,10 +341,10 @@ export async function getDatabricksCliToken(): Promise<string> {
     const bufferSeconds = 300;
     cliTokenExpiresAt = Date.now() + (expiresIn - bufferSeconds) * 1000;
 
-    console.log(
-      `[CLI Auth] Token acquired, expires in ${expiresIn}s, ` +
-        `will refresh in ${expiresIn - bufferSeconds}s`,
-    );
+    // console.log(
+    //   `[CLI Auth] Token acquired, expires in ${expiresIn}s, ` +
+    //     `will refresh in ${expiresIn - bufferSeconds}s`,
+    // );
     return tokenData.access_token;
   } catch (error) {
     if (error instanceof Error && error.message.includes('Failed to parse')) {
@@ -407,7 +407,7 @@ export async function getDatabaseUsername(): Promise<string> {
 
     case 'cli':
       // For CLI auth, use the current user's identity
-      console.log(`[CLI Auth] Using user identity for database role`);
+      // console.log(`[CLI Auth] Using user identity for database role`);
       return await getDatabricksUserIdentity();
 
     case 'none':

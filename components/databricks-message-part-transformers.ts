@@ -68,7 +68,7 @@ export const joinMessagePartSegments = (parts: ChatMessage['parts']) => {
       case 'text':
         return acc + part.text;
       case 'source-url':
-        console.log("acc.endsWith('|')", acc.endsWith('|'));
+        // console.log("acc.endsWith('|')", acc.endsWith('|'));
         // Special case for markdown tables
         if (acc.endsWith('|')) {
           // 1. Remove the last pipe

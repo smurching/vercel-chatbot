@@ -52,6 +52,13 @@ export function Chat({
     initialLastContext,
   );
 
+  // Cursor-based stream resumption to prevent duplicate content
+  const cursorRef = useRef(0);
+  const retryingRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 5;
+  const INITIAL_RETRY_DELAY = 1000; // 1 second
+
   const {
     messages,
     setMessages,
@@ -81,8 +88,11 @@ export function Chat({
         };
       },
       prepareReconnectToStreamRequest({ id }) {
+        // Include cursor parameter to prevent duplicate chunks
+        const cursor = cursorRef.current;
+        console.log(`[Chat] Preparing reconnect with cursor=${cursor}`);
         return {
-          api: `/api/chat/${id}/stream`,
+          api: `/api/chat/${id}/stream?cursor=${cursor}`,
           credentials: 'include',
         };
       },
@@ -93,9 +103,9 @@ export function Chat({
         setUsage(dataPart.data);
       }
       // Track cursor position for each chunk received
-      if (dataPart.type === 'text-delta' || dataPart.type === 'tool-call-delta' || dataPart.type === 'tool-result') {
-        cursorRef.current++;
-      }
+      // if (dataPart.type === 'text-delta' || dataPart.type === 'tool-call-delta' || dataPart.type === 'tool-result') {
+      cursorRef.current++;
+      // }
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
@@ -134,13 +144,6 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  // Cursor-based stream resumption to prevent duplicate content
-  const cursorRef = useRef(0);
-  const retryingRef = useRef(false);
-  const retryCountRef = useRef(0);
-  const MAX_RETRIES = 5;
-  const INITIAL_RETRY_DELAY = 1000; // 1 second
-
   useAutoResume({
     autoResume,
     initialMessages,
@@ -160,76 +163,13 @@ export function Chat({
         `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES}) after ${retryDelay}ms`
       );
 
-      const timer = setTimeout(async () => {
+      const timer = setTimeout(() => {
         try {
-          const response = await fetch(`/api/chat/${id}/stream?cursor=${cursorRef.current}`, {
-            credentials: 'include',
-          });
+          // Use AI SDK's resumeStream() which will call prepareReconnectToStreamRequest
+          // with our cursor parameter to prevent duplicate chunks
+          resumeStream();
 
-          if (response.status === 204) {
-            console.log('[Chat] No active stream found, stopping retries');
-            retryingRef.current = false;
-            return;
-          }
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-
-          // Parse SSE stream manually to extract message content
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error('No response body');
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = '';
-          let chunksReceived = 0;
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              console.log(`[Chat] Stream completed, received ${chunksReceived} new chunks`);
-              break;
-            }
-
-            // Track chunks received for cursor
-            chunksReceived++;
-            cursorRef.current++;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-
-                  // Merge new content into existing messages
-                  if (data.type === 'text-delta') {
-                    setMessages((prev) => {
-                      const updated = [...prev];
-                      const lastMsg = updated[updated.length - 1];
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        const lastPart = lastMsg.parts[lastMsg.parts.length - 1];
-                        if (lastPart && lastPart.type === 'text') {
-                          lastPart.text += data.textDelta;
-                        }
-                      }
-                      return updated;
-                    });
-                  } else if (data.type === 'finish') {
-                    console.log('[Chat] Stream finished successfully');
-                  }
-                } catch (e) {
-                  console.error('[Chat] Error parsing SSE data:', e);
-                }
-              }
-            }
-          }
-
-          // Reset retry counter on success
+          // Reset retry counter on successful call (actual success determined by stream)
           retryCountRef.current = 0;
           retryingRef.current = false;
         } catch (error) {
@@ -255,7 +195,7 @@ export function Chat({
       cursorRef.current = 0;
       retryCountRef.current = 0;
     }
-  }, [status, id, setMessages]);
+  }, [status, resumeStream]);
 
   return (
     <>
