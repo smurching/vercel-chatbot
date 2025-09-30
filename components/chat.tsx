@@ -17,7 +17,6 @@ import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { useStreamReconnect } from '@/hooks/use-stream-reconnect';
-import { useStreamTiming } from '@/hooks/use-stream-timing';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
@@ -149,12 +148,6 @@ export function Chat({
     messages,
     inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
     maxReconnectAttempts: 5,
-  });
-
-  // Track and log streaming timing metrics
-  useStreamTiming({
-    status,
-    messages,
   });
 
   return (
