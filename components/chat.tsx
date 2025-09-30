@@ -2,7 +2,7 @@
 
 import { DefaultChatTransport, type LanguageModelUsage } from 'ai';
 import { useChat } from '@ai-sdk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import { fetchWithErrorHandlers, generateUUID } from '@/lib/utils';
@@ -54,6 +54,11 @@ export function Chat({
     initialLastContext,
   );
 
+  // Track reconnection attempts for onError handling
+  const reconnectAttemptsRef = useRef(0);
+  const isReconnectingRef = useRef(false);
+  const MAX_ERROR_RECONNECT_ATTEMPTS = 5;
+
   const {
     messages,
     setMessages,
@@ -97,9 +102,61 @@ export function Chat({
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      // Reset reconnect attempts on successful completion
+      reconnectAttemptsRef.current = 0;
     },
     onError: (error) => {
-      if (error instanceof ChatSDKError) {
+      console.log('[Chat onError] Error occurred:', error);
+
+      // Check if this is a network error that might be due to proxy timeout
+      const errorMessage = error?.message || '';
+      const isNetworkError =
+        errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') ||
+        errorMessage.includes('network') ||
+        errorMessage.includes('fetch') ||
+        error?.name === 'TypeError';
+
+      if (isNetworkError && !isReconnectingRef.current) {
+        // Check if we've exceeded max reconnection attempts
+        if (reconnectAttemptsRef.current >= MAX_ERROR_RECONNECT_ATTEMPTS) {
+          console.warn(
+            `[Chat onError] Max reconnection attempts (${MAX_ERROR_RECONNECT_ATTEMPTS}) reached`,
+          );
+          toast({
+            type: 'error',
+            description: 'Connection lost. Please try again.',
+          });
+          return;
+        }
+
+        isReconnectingRef.current = true;
+        reconnectAttemptsRef.current += 1;
+
+        console.log(
+          `[Chat onError] Network error detected, attempting to resume stream (attempt ${reconnectAttemptsRef.current}/${MAX_ERROR_RECONNECT_ATTEMPTS})`,
+        );
+
+        // Calculate exponential backoff delay
+        const backoffDelay = Math.min(
+          1000 * Math.pow(2, reconnectAttemptsRef.current - 1),
+          10000,
+        );
+
+        setTimeout(() => {
+          try {
+            console.log('[Chat onError] Calling resumeStream()...');
+            resumeStream();
+          } catch (resumeError) {
+            console.error('[Chat onError] Error calling resumeStream:', resumeError);
+            toast({
+              type: 'error',
+              description: 'Failed to resume stream. Please try again.',
+            });
+          } finally {
+            isReconnectingRef.current = false;
+          }
+        }, backoffDelay);
+      } else if (error instanceof ChatSDKError) {
         toast({
           type: 'error',
           description: error.message,
@@ -126,6 +183,14 @@ export function Chat({
   }, [query, sendMessage, hasAppendedQuery, id]);
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
+
+  // Reset reconnect attempts when starting a new message
+  useEffect(() => {
+    if (status === 'submitted') {
+      reconnectAttemptsRef.current = 0;
+      isReconnectingRef.current = false;
+    }
+  }, [status]);
 
   useAutoResume({
     autoResume,

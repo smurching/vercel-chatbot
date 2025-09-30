@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
 
   // Set up timeout that will forcibly close the connection
   const timer = setTimeout(() => {
-    console.log(`[Proxy] ⏱️  Connection timeout after ${TIMEOUT_MS}ms for ${req.url}`);
+    console.log(`[Proxy] ⏱️  Connection timeout after ${TIMEOUT_MS}ms for ${req.url}. Current time: ${new Date().toISOString()}`);
 
     // Destroy both the request and response sockets to fully terminate the connection
     req.socket?.destroy();
