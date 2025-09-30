@@ -1,5 +1,5 @@
 'use client';
-
+import { useMemo } from 'react';
 import { DefaultChatTransport, type LanguageModelUsage } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useState, useRef } from 'react';
@@ -56,7 +56,7 @@ export function Chat({
   const retryingRef = useRef(false);
   const retryCountRef = useRef(0);
   const seenChunkIds = useRef(new Set<string>());
-  const lastContentLength = useRef(0);
+  const maxContentLengthSeen = useRef(0);
   const MAX_RETRIES = 5;
   const INITIAL_RETRY_DELAY = 1000; // 1 second
 
@@ -150,44 +150,82 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  useAutoResume({
-    autoResume,
-    initialMessages,
-    resumeStream,
-    setMessages,
-  });
+  // useAutoResume({
+  //   autoResume,
+  //   initialMessages,
+  //   resumeStream,
+  //   setMessages,
+  // });
 
-  // Deduplicate by keeping only content after the last 'step-start'
-  // Each retry adds a new 'step-start', so we only show the latest attempt
-  useEffect(() => {
-    if (messages.length === 0) return;
+  // Deduplicate messages by tracking content length and only showing new content
+  // When resumeStream() replays, it starts from beginning, so we track max length
+  // and only show content beyond what we've already displayed
+  const deduplicatedMessages = useMemo(() => {
+    if (messages.length === 0) return messages;
 
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage.role !== 'assistant') return;
+    return messages.map((message, idx) => {
+      // Only process assistant messages
+      if (message.role !== 'assistant') return message;
 
-    // Find the index of the last 'step-start' marker
-    let lastStepStartIndex = -1;
-    for (let i = lastMessage.parts.length - 1; i >= 0; i--) {
-      if (lastMessage.parts[i].type === 'step-start') {
-        lastStepStartIndex = i;
-        break;
-      }
-    }
+      // Only process the last message (the one being streamed)
+      if (idx !== messages.length - 1) return message;
 
-    // If we found a step-start and there are parts before it, keep only parts after it
-    if (lastStepStartIndex > 0) {
-      console.log(`[Chat] Found step-start at index ${lastStepStartIndex}, removing ${lastStepStartIndex} duplicate parts`);
-      setMessages((prev) => {
-        const updated = [...prev];
-        const lastMsg = updated[updated.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant') {
-          // Keep only parts from the last step-start onwards
-          lastMsg.parts = lastMsg.parts.slice(lastStepStartIndex);
+      // Calculate total text content length
+      let currentTextLength = 0;
+      const textParts: typeof message.parts = [];
+
+      for (const part of message.parts) {
+        if (part.type === 'text') {
+          currentTextLength += part.text.length;
+          textParts.push(part);
         }
-        return updated;
-      });
-    }
-  }, [messages, setMessages]);
+      }
+
+      // If content length hasn't grown beyond what we've seen, we're replaying
+      // Keep only the parts that represent new content
+      if (currentTextLength > maxContentLengthSeen.current) {
+        console.log(`[Chat] Content grew from ${maxContentLengthSeen.current} to ${currentTextLength}`);
+        maxContentLengthSeen.current = currentTextLength;
+        return message;
+      } else if (currentTextLength < maxContentLengthSeen.current) {
+        // Content shrank - we're replaying from start. Build up to max length we've seen
+        console.log(`[Chat] Replay detected (${currentTextLength} < ${maxContentLengthSeen.current}), truncating to max seen`);
+
+        let accumulatedLength = 0;
+        const truncatedParts: typeof message.parts = [];
+
+        for (const part of message.parts) {
+          if (part.type === 'text') {
+            const remainingNeeded = maxContentLengthSeen.current - accumulatedLength;
+            if (remainingNeeded > 0) {
+              if (part.text.length <= remainingNeeded) {
+                truncatedParts.push(part);
+                accumulatedLength += part.text.length;
+              } else {
+                // Truncate this part
+                truncatedParts.push({
+                  ...part,
+                  text: part.text.substring(0, remainingNeeded),
+                });
+                accumulatedLength += remainingNeeded;
+                break;
+              }
+            }
+          } else {
+            // Keep non-text parts
+            truncatedParts.push(part);
+          }
+        }
+
+        return {
+          ...message,
+          parts: truncatedParts,
+        };
+      }
+
+      return message;
+    });
+  }, [messages]);
 
   // Retry logic for handling connection breaks
   useEffect(() => {
@@ -231,7 +269,7 @@ export function Chat({
     // Reset state when starting new stream
     if (status === 'streaming') {
       retryCountRef.current = 0;
-      lastContentLength.current = 0;
+      maxContentLengthSeen.current = 0;
       seenChunkIds.current.clear();
     }
   }, [status, resumeStream]);
@@ -249,7 +287,7 @@ export function Chat({
         <Messages
           chatId={id}
           status={status}
-          messages={messages}
+          messages={deduplicatedMessages}
           setMessages={setMessages}
           regenerate={regenerate}
           isReadonly={isReadonly}
@@ -266,7 +304,7 @@ export function Chat({
               stop={stop}
               attachments={attachments}
               setAttachments={setAttachments}
-              messages={messages}
+              messages={deduplicatedMessages}
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
