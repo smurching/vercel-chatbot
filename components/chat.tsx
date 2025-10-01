@@ -106,19 +106,25 @@ export function Chat({
     onError: (error) => {
       console.log('[Chat onError] Error occurred:', error);
 
-      // For now, just log network errors but don't try to resume
-      // The resumeStream() API is designed for page reloads, not mid-stream reconnections
-      // Mid-stream reconnections cause duplicate messages because all chunks are replayed
       if (error instanceof ChatSDKError) {
         toast({
           type: 'error',
           description: error.message,
         });
       } else {
-        // Network error - the backend will continue streaming and save the full response
-        console.warn(
-          '[Chat onError] Network error during streaming. Backend will complete the response.',
-        );
+        // Network error during streaming
+        if (!autoResume) {
+          // For new chats where reconnection is disabled, reset status to allow retrying
+          console.warn(
+            '[Chat onError] Network error on new chat. Resetting status to allow retry.',
+          );
+          stop();
+        } else {
+          // For existing chats, the useStreamReconnect hook will handle reconnection
+          console.warn(
+            '[Chat onError] Network error during streaming. Backend will complete the response.',
+          );
+        }
       }
     },
   });
