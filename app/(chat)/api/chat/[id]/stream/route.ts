@@ -16,6 +16,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: chatId } = await params;
+  const cursor = _request.headers.get('X-Resume-Stream-Cursor');
+
+  console.log(`[Stream Resume] Cursor: ${cursor}`);
 
   console.log(`[Stream Resume] GET request for chat ${chatId}`);
 
@@ -28,7 +31,9 @@ export async function GET(
   }
 
   // Get all cached chunks for this stream
-  const stream = streamCache.getStream(streamId);
+  const stream = streamCache.getStream(streamId, {
+    cursor: cursor ? Number.parseInt(cursor) : undefined,
+  });
 
   if (!stream) {
     console.log(`[Stream Resume] No stream found for ${streamId}`);

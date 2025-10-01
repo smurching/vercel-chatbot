@@ -1,8 +1,8 @@
 'use client';
 
-import { DefaultChatTransport, type LanguageModelUsage } from 'ai';
+import type { LanguageModelUsage } from 'ai';
 import { useChat } from '@ai-sdk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import { fetchWithErrorHandlers, generateUUID } from '@/lib/utils';
@@ -15,10 +15,12 @@ import { toast } from './toast';
 import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
-import { useStreamReconnect } from '@/hooks/use-stream-reconnect';
+import { useErrorReconnect } from '@/hooks/use-error-reconnect';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
+import { useInactivityReconnect } from '@/hooks/use-inactivity-reconnect';
+import { ExtendedDefaultChatTransport } from '@/databricks/utils/databricks-chat-transport';
 
 export function Chat({
   id,
@@ -52,6 +54,8 @@ export function Chat({
     initialLastContext,
   );
 
+  const streamPartCursorRef = useRef(0);
+
   const {
     messages,
     setMessages,
@@ -65,8 +69,12 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
-    resume: true, // Enable automatic stream resumption
-    transport: new DefaultChatTransport({
+    resume: id !== undefined, // Enable automatic stream resumption
+    transport: new ExtendedDefaultChatTransport({
+      onStreamPart: () => {
+        // Keep track of the number of stream parts received
+        streamPartCursorRef.current++;
+      },
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
@@ -84,6 +92,10 @@ export function Chat({
         return {
           api: `/api/chat/${id}/stream`,
           credentials: 'include',
+          headers: {
+            // Pass the cursor to the server so it can resume the stream from the correct point
+            'X-Resume-Stream-Cursor': streamPartCursorRef.current.toString(),
+          },
         };
       },
     }),
@@ -94,6 +106,7 @@ export function Chat({
       }
     },
     onFinish: () => {
+      streamPartCursorRef.current = 0;
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
@@ -117,7 +130,7 @@ export function Chat({
   });
 
   const searchParams = useSearchParams();
-  const query = searchParams.get('query');
+  const query = searchParams?.get('query');
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
@@ -135,14 +148,22 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
+  useEffect(() => {
+    console.log('[Chat] status', status);
+  }, [status]);
+
+  // Automatically resume stream if an error occurs
+  useErrorReconnect({
+    resumeStream,
+    status,
+  });
+
   // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
-  // useStreamReconnect({
-  //   status,
-  //   resumeStream,
-  //   messages,
-  //   inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
-  //   maxReconnectAttempts: 5,
-  // });
+  useInactivityReconnect({
+    resumeStream,
+    messages,
+    maxAttempts: 15,
+  });
 
   return (
     <>

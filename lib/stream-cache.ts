@@ -91,10 +91,13 @@ export class StreamCache {
   /**
    * Get a stream
    */
-  getStream(streamId: string): ReadableStream<string> | null {
+  getStream(
+    streamId: string,
+    { cursor }: { cursor?: number } = {},
+  ): ReadableStream<string> | null {
     const cache = this.cache.get(streamId)?.cache;
     if (!cache) return null;
-    return cacheableToReadable(cache);
+    return cacheableToReadable(cache, { cursor });
   }
   /**
    * Get the active stream ID for a chat
@@ -104,26 +107,11 @@ export class StreamCache {
   }
 
   /**
-   * Mark a stream as complete and clean it up
-   */
-  completeStream(streamId: string): void {
-    const stream = this.cache.get(streamId);
-    if (stream) {
-      this.activeStreams.delete(stream.chatId);
-      this.clearStream(streamId);
-      console.log(
-        `[StreamCache] Completed and removed stream ${streamId} for chat ${stream.chatId}`,
-      );
-    }
-  }
-
-  /**
    * Clear the active stream for a chat (e.g., when starting a new message)
    */
   clearActiveStream(chatId: string): void {
     const streamId = this.activeStreams.get(chatId);
     if (streamId) {
-      this.clearStream(streamId);
       this.activeStreams.delete(chatId);
       console.log(
         `[StreamCache] Cleared active stream ${streamId} for chat ${chatId}`,
@@ -138,18 +126,6 @@ export class StreamCache {
       this.cache.delete(streamId);
     }
   }
-
-  /**
-   * Cleanup resources
-   */
-  destroy() {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
-    this.cache.clear();
-    this.activeStreams.clear();
-  }
 }
 
 /**
@@ -161,17 +137,16 @@ export const streamCache = globalThis.streamCache;
 export interface CacheableStream<T> {
   readonly chunks: readonly T[];
   push(chunk: T): void;
-  read(): AsyncIterableIterator<T>;
+  read({ cursor }: { cursor?: number }): AsyncIterableIterator<T>;
   close(): void;
 }
 
 /**
- * Turns an arbitrary `ReadableStream<Uint8Array>` into a cache‑able
- * async‑iterable.  All data is stored as UTF‑8 strings (you can change the
- * decoder if you need a different encoding).
+ * Turns an arbitrary `ReadableStream<T>` into a cache‑able
+ * async‑iterable.  All data is stored as T[].
  *
  * @param source The original readable stream you want to cache.
- *
+ * @param onPush A callback to be called when a chunk is pushed to the stream.
  * @returns An object matching the `CacheableStream` interface.
  */
 function makeCacheableStream<T>({
@@ -240,8 +215,9 @@ function makeCacheableStream<T>({
     },
 
     // The core async generator – see the comments inside for details.
-    async *read() {
-      let idx = 0; // where we are in the cache for this particular call
+    async *read({ cursor }: { cursor?: number } = {}) {
+      let idx = cursor ?? 0; // where we are in the cache for this particular call
+      console.log('[StreamCache] read', { cursor, idx });
 
       while (true) {
         // 1️⃣ Yield everything that is already cached and we haven't emitted yet.
@@ -271,10 +247,6 @@ function makeCacheableStream<T>({
   return api;
 }
 
-// ---------------------------------------------------------------
-//  cacheable-to-readable.ts
-// ---------------------------------------------------------------
-
 /**
  * Turns a `CacheableStream<T>` into a `ReadableStream<T>`
  *
@@ -284,6 +256,7 @@ function makeCacheableStream<T>({
  */
 export function cacheableToReadable<T>(
   cache: CacheableStream<T>,
+  { cursor }: { cursor?: number } = {},
 ): ReadableStream<T> {
   // The async iterator returned by `cache.read()`.  We create it lazily on
   // the first `pull()` call so that the cache isn’t “started” until the
@@ -294,7 +267,7 @@ export function cacheableToReadable<T>(
   // “iterator not created yet” case.
   async function getNext(): Promise<{ value?: T; done?: boolean }> {
     if (!iterator) {
-      iterator = cache.read();
+      iterator = cache.read({ cursor });
     }
     const result = await iterator.next();
     return result;

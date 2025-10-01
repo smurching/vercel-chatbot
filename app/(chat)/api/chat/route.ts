@@ -163,8 +163,7 @@ export async function POST(request: Request) {
           }
         }
 
-        // Mark stream as complete and remove from cache
-        streamCache.completeStream(streamId);
+        streamCache.clearActiveStream(id);
       },
       onError: (error) => {
         console.error('Stream error:', error);
@@ -172,9 +171,6 @@ export async function POST(request: Request) {
           'Stack trace:',
           error instanceof Error ? error.stack : 'No stack',
         );
-
-        // Clean up stream on error
-        streamCache.completeStream(streamId);
 
         return 'Oops, an error occurred!';
       },
