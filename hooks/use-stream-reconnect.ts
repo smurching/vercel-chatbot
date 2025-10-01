@@ -7,6 +7,7 @@ import type { ChatMessage } from '@/lib/types';
 interface UseStreamReconnectParams {
   status: UseChatHelpers<ChatMessage>['status'];
   resumeStream: UseChatHelpers<ChatMessage>['resumeStream'];
+  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   messages: ChatMessage[];
   /**
    * Maximum time to wait for stream activity before attempting reconnection (ms)
@@ -33,6 +34,7 @@ interface UseStreamReconnectParams {
 export function useStreamReconnect({
   status,
   resumeStream,
+  setMessages,
   messages,
   inactivityTimeout = 65000, // 65s to be slightly longer than 60s proxy timeout
   maxReconnectAttempts = 5,
@@ -43,30 +45,71 @@ export function useStreamReconnect({
   const isReconnectingRef = useRef(false);
 
   useEffect(() => {
+    console.log(`[useStreamReconnect] Effect triggered - status=${status}, messages.length=${messages.length}`);
+
     // Clear any existing timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
 
-    // Only monitor when streaming is in progress
-    if (status !== 'streaming') {
+    // Monitor during streaming OR error (error means connection broke mid-stream)
+    if (status !== 'streaming' && status !== 'error') {
+      console.log(`[useStreamReconnect] Status is ${status}, not monitoring`);
       reconnectAttemptsRef.current = 0;
       isReconnectingRef.current = false;
-      debugger;
+      return;
+    }
+
+    // If we're in error state, try to reconnect immediately
+    if (status === 'error' && !isReconnectingRef.current) {
+      console.log('[useStreamReconnect] Error status detected, attempting immediate reconnection');
+
+      if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+        console.warn(
+          `[useStreamReconnect] Max reconnection attempts (${maxReconnectAttempts}) reached, giving up`,
+        );
+        return;
+      }
+
+      isReconnectingRef.current = true;
+      reconnectAttemptsRef.current += 1;
+
+      const backoffDelay = Math.min(
+        1000 * Math.pow(2, reconnectAttemptsRef.current - 1),
+        10000,
+      );
+
+      console.log(`[useStreamReconnect] Reconnecting after ${backoffDelay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+
+      setTimeout(() => {
+        try {
+          console.log('[useStreamReconnect] Clearing messages before resume to avoid duplicates');
+          setMessages([]);
+
+          console.log('[useStreamReconnect] Calling resumeStream()...');
+          resumeStream();
+        } catch (error) {
+          console.error('[useStreamReconnect] Error calling resumeStream:', error);
+        } finally {
+          isReconnectingRef.current = false;
+        }
+      }, backoffDelay);
+
       return;
     }
 
     // Check if we've received new messages (indicates stream activity)
     if (messages.length > lastMessageCountRef.current) {
+      console.log(`[useStreamReconnect] New messages detected: ${messages.length} (was ${lastMessageCountRef.current})`);
       lastMessageCountRef.current = messages.length;
       reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful activity
     }
 
     // Set up inactivity timer
-    debugger;
+    console.log(`[useStreamReconnect] Setting inactivity timer for ${inactivityTimeout}ms`);
     inactivityTimerRef.current = setTimeout(() => {
-      debugger;
+      console.log('[useStreamReconnect] Inactivity timer fired!');
       // Check if we've exceeded max reconnection attempts
       if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
         console.warn(
@@ -96,6 +139,10 @@ export function useStreamReconnect({
       // Wait before attempting reconnection
       setTimeout(() => {
         try {
+          console.log('[useStreamReconnect] Clearing messages before resume to avoid duplicates');
+          // Clear messages first - the backend will replay everything via CacheableStream
+          setMessages([]);
+
           console.log('[useStreamReconnect] Calling resumeStream()...');
           resumeStream();
         } catch (error) {

@@ -136,13 +136,14 @@ export function Chat({
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
   // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
-  // useStreamReconnect({
-  //   status,
-  //   resumeStream,
-  //   messages,
-  //   inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
-  //   maxReconnectAttempts: 5,
-  // });
+  useStreamReconnect({
+    status,
+    resumeStream,
+    setMessages,
+    messages,
+    inactivityTimeout: 12000, // 12s to detect 10s proxy timeout
+    maxReconnectAttempts: 5,
+  });
 
   return (
     <>
