@@ -7,6 +7,7 @@ import type { ChatMessage } from '@/lib/types';
 interface UseStreamReconnectParams {
   status: UseChatHelpers<ChatMessage>['status'];
   resumeStream: UseChatHelpers<ChatMessage>['resumeStream'];
+  stop: UseChatHelpers<ChatMessage>['stop'];
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   messages: ChatMessage[];
   /**
@@ -19,6 +20,11 @@ interface UseStreamReconnectParams {
    * Default: 5
    */
   maxReconnectAttempts?: number;
+  /**
+   * Whether reconnection is enabled
+   * Default: true
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -34,18 +40,27 @@ interface UseStreamReconnectParams {
 export function useStreamReconnect({
   status,
   resumeStream,
+  stop,
   setMessages,
   messages,
   inactivityTimeout = 65000, // 65s to be slightly longer than 60s proxy timeout
   maxReconnectAttempts = 5,
+  enabled = true,
 }: UseStreamReconnectParams) {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const lastMessageCountRef = useRef(messages.length);
   const isReconnectingRef = useRef(false);
+  const hasGivenUpRef = useRef(false);
 
   useEffect(() => {
-    console.log(`[useStreamReconnect] Effect triggered - status=${status}, messages.length=${messages.length}`);
+    console.log(`[useStreamReconnect] Effect triggered - status=${status}, messages.length=${messages.length}, enabled=${enabled}`);
+
+    // If disabled, do nothing
+    if (!enabled) {
+      console.log('[useStreamReconnect] Reconnection disabled');
+      return;
+    }
 
     // Clear any existing timer
     if (inactivityTimerRef.current) {
@@ -58,17 +73,46 @@ export function useStreamReconnect({
       console.log(`[useStreamReconnect] Status is ${status}, not monitoring`);
       reconnectAttemptsRef.current = 0;
       isReconnectingRef.current = false;
+      hasGivenUpRef.current = false;
+      return;
+    }
+
+    // Reset success state when streaming successfully
+    if (status === 'streaming') {
+      hasGivenUpRef.current = false;
+    }
+
+    // If we've given up, don't try again until status changes to non-error
+    if (hasGivenUpRef.current) {
       return;
     }
 
     // If we're in error state, try to reconnect immediately
+    // BUT only if we have messages (indicating an actual interrupted stream, not a completed one)
     if (status === 'error' && !isReconnectingRef.current) {
-      console.log('[useStreamReconnect] Error status detected, attempting immediate reconnection');
+      console.log('[useStreamReconnect] Error status detected');
+
+      // If we have no messages or only user messages, the stream probably completed or never started
+      // Don't try to reconnect in this case
+      const hasAssistantMessages = messages.some(m => m.role === 'assistant');
+      if (!hasAssistantMessages && reconnectAttemptsRef.current > 0) {
+        console.log('[useStreamReconnect] No assistant messages found after retry, assuming stream completed');
+        reconnectAttemptsRef.current = 0;
+        isReconnectingRef.current = false;
+        hasGivenUpRef.current = true;
+        // Stop the stream to reset status to 'ready'
+        stop();
+        return;
+      }
 
       if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
         console.warn(
           `[useStreamReconnect] Max reconnection attempts (${maxReconnectAttempts}) reached, giving up`,
         );
+        isReconnectingRef.current = false;
+        hasGivenUpRef.current = true;
+        // Stop the stream to reset status to 'ready'
+        stop();
         return;
       }
 
