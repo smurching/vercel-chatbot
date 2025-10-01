@@ -110,50 +110,7 @@ const databricksFetch: typeof fetch = async (input, init) => {
 
   // Handle streaming responses (text/event-stream) - add raw logging
   if (contentType?.includes('text/event-stream')) {
-    console.log('🔍 Streaming response detected, adding raw chunk logging...');
-
-    const loggingStream = new TransformStream({
-      transform(chunk, controller) {
-        try {
-          const text = new TextDecoder().decode(chunk);
-          const lines = text.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-              try {
-                const eventData = JSON.parse(line.slice(6));
-                console.log(
-                  '🔍 RAW DATABRICKS CHUNK:',
-                  JSON.stringify(eventData, null, 2),
-                );
-
-                // Check specifically for function_call_output
-                if (eventData.item?.type === 'function_call_output') {
-                  console.log(
-                    '✅ FOUND function_call_output:',
-                    eventData.item.output,
-                  );
-                }
-              } catch (e) {
-                console.log('🔍 RAW LINE (unparseable):', line);
-              }
-            }
-          }
-
-          // Pass through unchanged
-          controller.enqueue(chunk);
-        } catch (error) {
-          console.error('Error in logging stream:', error);
-          controller.enqueue(chunk);
-        }
-      },
-    });
-
-    return new Response(response.body?.pipeThrough(loggingStream), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
+    return response;
   }
 
   // Handle non-streaming JSON responses
@@ -308,10 +265,6 @@ const databricksMiddleware: LanguageModelV2Middleware = {
                */
               deltaEndIds.add(transformedChunk.id);
             }
-            console.log(
-              'writing chunk',
-              JSON.stringify(transformedChunk, null, 2),
-            );
             controller.enqueue(transformedChunk);
           });
 

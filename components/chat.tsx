@@ -1,6 +1,6 @@
 'use client';
 
-import type { LanguageModelUsage } from 'ai';
+import type { LanguageModelUsage, UIMessageChunk } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef, useState } from 'react';
 import { useSWRConfig } from 'swr';
@@ -19,7 +19,6 @@ import { useErrorReconnect } from '@/hooks/use-error-reconnect';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
-import { useInactivityReconnect } from '@/hooks/use-inactivity-reconnect';
 import { ExtendedDefaultChatTransport } from '@/databricks/utils/databricks-chat-transport';
 
 export function Chat({
@@ -54,7 +53,12 @@ export function Chat({
     initialLastContext,
   );
 
-  const streamPartCursorRef = useRef(0);
+  const [streamCursor, setStreamCursor] = useState(0);
+  const streamCursorRef = useRef(streamCursor);
+  streamCursorRef.current = streamCursor;
+  const [lastPart, setLastPart] = useState<UIMessageChunk | undefined>();
+  const lastPartRef = useRef<UIMessageChunk | undefined>(lastPart);
+  lastPartRef.current = lastPart;
 
   const {
     messages,
@@ -69,11 +73,12 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
-    resume: id !== undefined, // Enable automatic stream resumption
+    resume: id !== undefined && initialMessages.length > 0, // Enable automatic stream resumption
     transport: new ExtendedDefaultChatTransport({
-      onStreamPart: () => {
+      onStreamPart: (part) => {
         // Keep track of the number of stream parts received
-        streamPartCursorRef.current++;
+        setStreamCursor((cursor) => cursor + 1);
+        setLastPart(part);
       },
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
@@ -94,7 +99,7 @@ export function Chat({
           credentials: 'include',
           headers: {
             // Pass the cursor to the server so it can resume the stream from the correct point
-            'X-Resume-Stream-Cursor': streamPartCursorRef.current.toString(),
+            'X-Resume-Stream-Cursor': streamCursorRef.current.toString(),
           },
         };
       },
@@ -106,7 +111,16 @@ export function Chat({
       }
     },
     onFinish: () => {
-      streamPartCursorRef.current = 0;
+      console.log('[Chat onFinish] lastPart received was', lastPartRef.current);
+      if (lastPartRef.current?.type !== 'finish') {
+        console.log(
+          '[Chat onFinish] lastPart received was not finish, resuming stream',
+        );
+        // If the message is empty attempt to resume the stream.
+        resumeStream();
+      } else {
+        setStreamCursor(0);
+      }
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
@@ -148,21 +162,10 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  useEffect(() => {
-    console.log('[Chat] status', status);
-  }, [status]);
-
   // Automatically resume stream if an error occurs
   useErrorReconnect({
     resumeStream,
     status,
-  });
-
-  // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
-  useInactivityReconnect({
-    resumeStream,
-    messages,
-    maxAttempts: 15,
   });
 
   return (
