@@ -84,8 +84,11 @@ export function useStreamReconnect({
 
       setTimeout(() => {
         try {
-          console.log('[useStreamReconnect] Clearing messages before resume to avoid duplicates');
-          setMessages([]);
+          console.log('[useStreamReconnect] Clearing assistant messages before resume to avoid duplicates');
+          // Keep user messages, only clear assistant messages
+          // The backend will replay the assistant's response from the beginning
+          const userMessages = messages.filter(m => m.role === 'user');
+          setMessages(userMessages);
 
           console.log('[useStreamReconnect] Calling resumeStream()...');
           resumeStream();
@@ -139,9 +142,10 @@ export function useStreamReconnect({
       // Wait before attempting reconnection
       setTimeout(() => {
         try {
-          console.log('[useStreamReconnect] Clearing messages before resume to avoid duplicates');
-          // Clear messages first - the backend will replay everything via CacheableStream
-          setMessages([]);
+          console.log('[useStreamReconnect] Clearing assistant messages before resume to avoid duplicates');
+          // Keep user messages, only clear assistant messages
+          const userMessages = messages.filter(m => m.role === 'user');
+          setMessages(userMessages);
 
           console.log('[useStreamReconnect] Calling resumeStream()...');
           resumeStream();
