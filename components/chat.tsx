@@ -65,7 +65,7 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
-    resume: true, // Enable automatic stream resumption
+    resume: autoResume, // Only enable stream resumption for existing chats
     transport: new DefaultChatTransport({
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
