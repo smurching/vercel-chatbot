@@ -13,7 +13,7 @@ import { unstable_serialize } from 'swr/infinite';
 import { getChatHistoryPaginationKey } from './sidebar-history';
 import { toast } from './toast';
 import type { AuthSession } from '@/databricks/auth/databricks-auth';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useStreamReconnect } from '@/hooks/use-stream-reconnect';
 import { ChatSDKError } from '@/lib/errors';
@@ -44,6 +44,7 @@ export function Chat({
     initialVisibilityType,
   });
 
+  const router = useRouter();
   const { mutate } = useSWRConfig();
   const { setDataStream } = useDataStream();
 
@@ -95,6 +96,12 @@ export function Chat({
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+
+      // If this is a new chat from the homepage (autoResume=false), redirect to the chat route
+      // This enables automatic stream reconnection for future messages
+      if (!autoResume && initialMessages.length === 0) {
+        router.push(`/chat/${id}`);
+      }
     },
     onError: (error) => {
       console.log('[Chat onError] Error occurred:', error);
