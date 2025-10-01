@@ -52,10 +52,9 @@ export function Chat({
     initialLastContext,
   );
 
-  // Cursor-based stream resumption to prevent duplicate content
-  const cursorRef = useRef(0);
   const retryingRef = useRef(false);
   const retryCountRef = useRef(0);
+  const cursorRef = useRef(0);
   const MAX_RETRIES = 5;
   const INITIAL_RETRY_DELAY = 1000; // 1 second
 
@@ -74,7 +73,7 @@ export function Chat({
     generateId: generateUUID,
     resume: true, // Enable automatic stream resumption
     transport: new DefaultChatTransport({
-      api: '/api/chat',
+      // api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
         return {
@@ -88,32 +87,21 @@ export function Chat({
         };
       },
       prepareReconnectToStreamRequest({ id }) {
-        // Include cursor parameter to prevent duplicate chunks
-        const cursor = cursorRef.current;
-        console.log(`[Chat] Preparing reconnect with cursor=${cursor}`);
+        // Calculate cursor as total number of parts across all messages
+        // This tells the backend how many chunks we've already received
+        const totalParts = cursorRef.current;
+        console.log(`[Chat] Preparing reconnect with cursor=${totalParts}`);
         return {
-          api: `/api/chat/${id}/stream?cursor=${cursor}`,
+          api: `/api/chat/${id}/stream?cursor=${totalParts}`,
           credentials: 'include',
         };
       },
     }),
-    onData: (dataPart) => {
-      console.log('[Chat onData] Received data part:', dataPart);
-      setDataStream((ds) => (ds ? [...ds, dataPart] : []));
-      if (dataPart.type === 'data-usage') {
-        setUsage(dataPart.data);
-      }
-      // Track cursor position for each chunk received
-      // if (dataPart.type === 'text-delta' || dataPart.type === 'tool-call-delta' || dataPart.type === 'tool-result') {
-      cursorRef.current++;
-      // }
-    },
     onFinish: () => {
+      console.log('[Chat onFinish]');
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      // console.log('[Chat onError] Error occurred:', error);
-
       if (error instanceof ChatSDKError) {
         toast({
           type: 'error',
@@ -159,8 +147,15 @@ export function Chat({
       retryingRef.current = true;
       const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, retryCountRef.current);
 
+      // Calculate current cursor from messages.
+      let totalParts = 0;
+      for (const msg of messages) {
+        totalParts += msg.parts.length;
+      }
+      debugger;
+      cursorRef.current = totalParts;
       console.log(
-        `[Chat] Connection error detected, retrying from cursor ${cursorRef.current} ` +
+        `[Chat] Connection error detected, retrying from cursor ${totalParts} ` +
         `(attempt ${retryCountRef.current + 1}/${MAX_RETRIES}) after ${retryDelay}ms`
       );
 
@@ -191,12 +186,11 @@ export function Chat({
       return () => clearTimeout(timer);
     }
 
-    // Reset cursor when starting new stream
+    // Reset retry counter when starting new stream
     if (status === 'streaming') {
-      cursorRef.current = 0;
       retryCountRef.current = 0;
     }
-  }, [status, resumeStream]);
+  }, [status, messages, resumeStream]);
 
   return (
     <>

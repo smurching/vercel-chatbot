@@ -165,11 +165,13 @@ export class StreamCache {
 
     // Get chunks starting from cursor position
     const chunksToReplay = cached.chunks.slice(cursor);
+    debugger;
+    console.log('Replaying chunks:', chunksToReplay.length, 'from cursor:', cursor);
 
     console.log(
       `[StreamCache] Subscriber ${cached.subscribers} joined stream ${streamId}, ` +
         `cursor=${cursor}, replaying ${chunksToReplay.length} chunks ` +
-        `(skipped ${cursor} chunks)`,
+        `(skipped ${cursor} chunks). First chunk: ${JSON.stringify(chunksToReplay[0])}`,
     );
 
     // Create a new stream that first replays chunks from cursor, then continues with live stream
