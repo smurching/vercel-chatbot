@@ -15,7 +15,6 @@ import { toast } from './toast';
 import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
-import { useErrorReconnect } from '@/hooks/use-error-reconnect';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
@@ -60,6 +59,10 @@ export function Chat({
   const lastPartRef = useRef<UIMessageChunk | undefined>(lastPart);
   lastPartRef.current = lastPart;
 
+  const onErrorResumeCountRef = useRef(0);
+  const onFinishResumeCountRef = useRef(0);
+  const maxResumeAttempts = 3;
+
   const {
     messages,
     setMessages,
@@ -76,6 +79,10 @@ export function Chat({
     resume: id !== undefined && initialMessages.length > 0, // Enable automatic stream resumption
     transport: new ExtendedDefaultChatTransport({
       onStreamPart: (part) => {
+        // when we receive a stream part, we reset the onErrorResumeCountRef and onFinishResumeCountRef
+        onErrorResumeCountRef.current = 0;
+        onFinishResumeCountRef.current = 0;
+
         // Keep track of the number of stream parts received
         setStreamCursor((cursor) => cursor + 1);
         setLastPart(part);
@@ -83,6 +90,7 @@ export function Chat({
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
+        console.log('[Chat prepareSendMessagesRequest] messages', messages);
         return {
           body: {
             id,
@@ -94,6 +102,10 @@ export function Chat({
         };
       },
       prepareReconnectToStreamRequest({ id }) {
+        console.log(
+          '[Chat prepareReconnectToStreamRequest] cursor',
+          streamCursorRef.current,
+        );
         return {
           api: `/api/chat/${id}/stream`,
           credentials: 'include',
@@ -112,11 +124,16 @@ export function Chat({
     },
     onFinish: () => {
       console.log('[Chat onFinish] lastPart received was', lastPartRef.current);
-      if (lastPartRef.current?.type !== 'finish') {
+      if (
+        lastPartRef.current?.type !== 'finish' &&
+        onFinishResumeCountRef.current < maxResumeAttempts
+      ) {
         console.log(
-          '[Chat onFinish] lastPart received was not finish, resuming stream',
+          '[Chat onFinish] resuming stream. Attempt:',
+          onFinishResumeCountRef.current,
         );
         // If the message is empty attempt to resume the stream.
+        onFinishResumeCountRef.current++;
         resumeStream();
       } else {
         setStreamCursor(0);
@@ -140,6 +157,14 @@ export function Chat({
           '[Chat onError] Network error during streaming. Backend will complete the response.',
         );
       }
+      if (onErrorResumeCountRef.current < maxResumeAttempts) {
+        console.log(
+          '[Chat onError] resuming stream. Attempt:',
+          onErrorResumeCountRef.current,
+        );
+        onErrorResumeCountRef.current++;
+        resumeStream();
+      }
     },
   });
 
@@ -161,12 +186,6 @@ export function Chat({
   }, [query, sendMessage, hasAppendedQuery, id]);
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
-
-  // Automatically resume stream if an error occurs
-  useErrorReconnect({
-    resumeStream,
-    status,
-  });
 
   return (
     <>
