@@ -52,11 +52,8 @@ export function Chat({
     initialLastContext,
   );
 
-  // Client-side deduplication to prevent duplicate content
   const retryingRef = useRef(false);
   const retryCountRef = useRef(0);
-  const seenChunkIds = useRef(new Set<string>());
-  const maxContentLengthSeen = useRef(0);
   const MAX_RETRIES = 5;
   const INITIAL_RETRY_DELAY = 1000; // 1 second
 
@@ -97,17 +94,6 @@ export function Chat({
     }),
     onData: (dataPart) => {
       console.log('[Chat onData] Received data part:', dataPart);
-
-      // Track chunk IDs to detect duplicates
-      if ('id' in dataPart && dataPart.id) {
-        const chunkId = String(dataPart.id);
-        if (seenChunkIds.current.has(chunkId)) {
-          console.log(`[Chat] Skipping duplicate chunk ID: ${chunkId}`);
-          return; // Skip this duplicate chunk
-        }
-        seenChunkIds.current.add(chunkId);
-      }
-
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       if (dataPart.type === 'data-usage') {
         setUsage(dataPart.data);
@@ -150,82 +136,12 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  // useAutoResume({
-  //   autoResume,
-  //   initialMessages,
-  //   resumeStream,
-  //   setMessages,
-  // });
-
-  // Deduplicate messages by tracking content length and only showing new content
-  // When resumeStream() replays, it starts from beginning, so we track max length
-  // and only show content beyond what we've already displayed
-  const deduplicatedMessages = useMemo(() => {
-    if (messages.length === 0) return messages;
-
-    return messages.map((message, idx) => {
-      // Only process assistant messages
-      if (message.role !== 'assistant') return message;
-
-      // Only process the last message (the one being streamed)
-      if (idx !== messages.length - 1) return message;
-
-      // Calculate total text content length
-      let currentTextLength = 0;
-      const textParts: typeof message.parts = [];
-
-      for (const part of message.parts) {
-        if (part.type === 'text') {
-          currentTextLength += part.text.length;
-          textParts.push(part);
-        }
-      }
-
-      // If content length hasn't grown beyond what we've seen, we're replaying
-      // Keep only the parts that represent new content
-      if (currentTextLength > maxContentLengthSeen.current) {
-        console.log(`[Chat] Content grew from ${maxContentLengthSeen.current} to ${currentTextLength}`);
-        maxContentLengthSeen.current = currentTextLength;
-        return message;
-      } else if (currentTextLength < maxContentLengthSeen.current) {
-        // Content shrank - we're replaying from start. Build up to max length we've seen
-        console.log(`[Chat] Replay detected (${currentTextLength} < ${maxContentLengthSeen.current}), truncating to max seen`);
-
-        let accumulatedLength = 0;
-        const truncatedParts: typeof message.parts = [];
-
-        for (const part of message.parts) {
-          if (part.type === 'text') {
-            const remainingNeeded = maxContentLengthSeen.current - accumulatedLength;
-            if (remainingNeeded > 0) {
-              if (part.text.length <= remainingNeeded) {
-                truncatedParts.push(part);
-                accumulatedLength += part.text.length;
-              } else {
-                // Truncate this part
-                truncatedParts.push({
-                  ...part,
-                  text: part.text.substring(0, remainingNeeded),
-                });
-                accumulatedLength += remainingNeeded;
-                break;
-              }
-            }
-          } else {
-            // Keep non-text parts
-            truncatedParts.push(part);
-          }
-        }
-
-        return {
-          ...message,
-          parts: truncatedParts,
-        };
-      }
-
-      return message;
-    });
-  }, [messages]);
+  useAutoResume({
+    autoResume,
+    initialMessages,
+    resumeStream,
+    setMessages,
+  });
 
   // Retry logic for handling connection breaks
   useEffect(() => {
@@ -269,8 +185,6 @@ export function Chat({
     // Reset state when starting new stream
     if (status === 'streaming') {
       retryCountRef.current = 0;
-      maxContentLengthSeen.current = 0;
-      seenChunkIds.current.clear();
     }
   }, [status, resumeStream]);
 
@@ -287,7 +201,7 @@ export function Chat({
         <Messages
           chatId={id}
           status={status}
-          messages={deduplicatedMessages}
+          messages={messages}
           setMessages={setMessages}
           regenerate={regenerate}
           isReadonly={isReadonly}
@@ -304,7 +218,7 @@ export function Chat({
               stop={stop}
               attachments={attachments}
               setAttachments={setAttachments}
-              messages={deduplicatedMessages}
+              messages={messages}
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
