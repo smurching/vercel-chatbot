@@ -87,12 +87,12 @@ export function Chat({
         };
       },
       prepareReconnectToStreamRequest({ id }) {
-        // Calculate cursor as total number of parts across all messages
-        // This tells the backend how many chunks we've already received
-        const totalParts = cursorRef.current;
-        console.log(`[Chat] Preparing reconnect with cursor=${totalParts}`);
+        // Use the cursor from the last calculated position
+        // This represents the number of server-side chunks we've received
+        const cursor = cursorRef.current;
+        console.log(`[Chat] Preparing reconnect with cursor=${cursor}`);
         return {
-          api: `/api/chat/${id}/stream?cursor=${totalParts}`,
+          api: `/api/chat/${id}/stream?cursor=${cursor}`,
           credentials: 'include',
         };
       },
@@ -148,10 +148,17 @@ export function Chat({
       const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, retryCountRef.current);
 
       // Calculate current cursor from messages.
+      // TODO: Skip parts up to and including the most recent user message. Messages after that
+      // are being streamed by the assistant
       let totalParts = 0;
       for (const msg of messages) {
         totalParts += msg.parts.length;
       }
+      messages.forEach((msg => {
+        msg.parts.forEach(part => {
+          console.log(part.id)
+        });
+      })
       debugger;
       cursorRef.current = totalParts;
       console.log(
