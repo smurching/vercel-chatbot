@@ -21,6 +21,7 @@ import {
   getDatabricksUserIdentity,
   getCachedCliHost,
 } from '@/databricks/auth/databricks-auth';
+import { DatabricksChatAgentLanguageModel } from './chat-agent-language-model';
 
 // Use centralized authentication - only on server side
 async function getProviderToken(): Promise<string> {
@@ -75,7 +76,7 @@ async function getWorkspaceHostname(): Promise<string> {
 }
 
 // Custom fetch function to transform Databricks responses to OpenAI format
-const databricksFetch: typeof fetch = async (input, init) => {
+export const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
 
   // Log the request being sent to Databricks
@@ -365,7 +366,27 @@ class OAuthAwareProvider implements SmartProvider {
     if (id === 'title-model' || id === 'artifact-model') {
       baseModel = provider.chat(databricksChatEndpoint);
     } else {
-      if (endpointDetails.task?.includes('responses')) {
+      if (
+        endpointDetails.task?.includes('agent/v2/chat') ||
+        endpointDetails.task?.includes('agent/v1/chat')
+      ) {
+        const hostname = await getWorkspaceHostname();
+        const currentToken = await getProviderToken();
+        console.log(
+          `Creating fresh model for ${id} using DatabricksChatAgentLanguageModel`,
+        );
+        baseModel = new DatabricksChatAgentLanguageModel(servingEndpoint, {
+          fetch: databricksFetch,
+          headers: () => ({
+            Authorization: `Bearer ${currentToken}`,
+          }),
+          provider: 'databricks',
+          url: () =>
+            // `${hostname}/ajax-api/2.0/serving-endpoints/${servingEndpoint}/invocations`,
+            `${hostname}/serving-endpoints/chat/completions`,
+          // headers: provider.headers,
+        });
+      } else if (endpointDetails.task?.includes('responses')) {
         baseModel = provider.responses(servingEndpoint);
       } else if (endpointDetails.task?.includes('chat')) {
         baseModel = provider.chat(servingEndpoint);
