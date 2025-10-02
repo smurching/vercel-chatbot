@@ -135,21 +135,22 @@ export async function POST(request: Request) {
       generateMessageId: generateUUID,
       sendReasoning: true,
       sendSources: true,
-      onFinish: async ({ messages }) => {
-        console.log('Finished message stream! Saving messages...');
-        // Only save assistant messages - user message was already saved above
-        const assistantMessages = messages.filter(
-          (m) => m.role === 'assistant',
+      onFinish: async ({ responseMessage }) => {
+        console.log(
+          'Finished message stream! Saving message...',
+          JSON.stringify(responseMessage, null, 2),
         );
         await saveMessages({
-          messages: assistantMessages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            createdAt: new Date(),
-            attachments: [],
-            chatId: id,
-          })),
+          messages: [
+            {
+              id: responseMessage.id,
+              role: responseMessage.role,
+              parts: responseMessage.parts,
+              createdAt: new Date(),
+              attachments: [],
+              chatId: id,
+            },
+          ],
         });
 
         if (finalUsage) {
