@@ -136,7 +136,6 @@ export const streamCache = globalThis.streamCache;
 
 export interface CacheableStream<T> {
   readonly chunks: readonly T[];
-  push(chunk: T): void;
   read({ cursor }: { cursor?: number }): AsyncIterableIterator<T>;
   close(): void;
 }
@@ -185,6 +184,7 @@ function makeCacheableStream<T>({
         if (srcDone) break; // source finished
         // Convert the Uint8Array to a string and cache it.
         chunks.push(value);
+        onPush?.(value);
         notify(); // wake any pending readers
       }
     } catch (err) {
@@ -205,13 +205,6 @@ function makeCacheableStream<T>({
     // expose a **read‑only** view of the internal array
     get chunks() {
       return chunks as readonly T[];
-    },
-
-    // manually push a chunk (useful for tests or extra data)
-    push(chunk: T) {
-      onPush?.(chunk);
-      chunks.push(chunk);
-      notify();
     },
 
     // The core async generator – see the comments inside for details.
@@ -302,9 +295,8 @@ export function cacheableToReadable<T>(
      * cache so it can stop its background reader.
      */
     cancel(reason) {
-      // If the cache wants to do something special on cancel you can
-      // expose a `abort` method; for now we just call `close()`.
-      cache.close();
+      console.log('[StreamCache] cancel', reason);
+      // We don't close the underlying cache when this cancels since new consumers may be started
     },
   });
 }

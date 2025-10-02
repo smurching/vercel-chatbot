@@ -300,7 +300,6 @@ export async function saveMessages({
   try {
     return await (await ensureDb()).insert(message).values(messages);
   } catch (error) {
-    throw error;
     throw new ChatSDKError('bad_request:database', 'Failed to save messages');
   }
 }
