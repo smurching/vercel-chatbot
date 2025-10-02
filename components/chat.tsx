@@ -1,8 +1,8 @@
 'use client';
 
-import { DefaultChatTransport, type LanguageModelUsage } from 'ai';
+import type { LanguageModelUsage } from 'ai';
 import { useChat } from '@ai-sdk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import { fetchWithErrorHandlers, generateUUID } from '@/lib/utils';
@@ -15,10 +15,12 @@ import { toast } from './toast';
 import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
-import { useAutoResume } from '@/hooks/use-auto-resume';
+import { useErrorReconnect } from '@/hooks/use-error-reconnect';
 import { ChatSDKError } from '@/lib/errors';
 import type { Attachment, ChatMessage } from '@/lib/types';
 import { useDataStream } from './data-stream-provider';
+import { useInactivityReconnect } from '@/hooks/use-inactivity-reconnect';
+import { ExtendedDefaultChatTransport } from '@/databricks/utils/databricks-chat-transport';
 
 export function Chat({
   id,
@@ -52,6 +54,8 @@ export function Chat({
     initialLastContext,
   );
 
+  const streamPartCursorRef = useRef(0);
+
   const {
     messages,
     setMessages,
@@ -65,7 +69,12 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
-    transport: new DefaultChatTransport({
+    resume: id !== undefined, // Enable automatic stream resumption
+    transport: new ExtendedDefaultChatTransport({
+      onStreamPart: () => {
+        // Keep track of the number of stream parts received
+        streamPartCursorRef.current++;
+      },
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
@@ -79,6 +88,16 @@ export function Chat({
           },
         };
       },
+      prepareReconnectToStreamRequest({ id }) {
+        return {
+          api: `/api/chat/${id}/stream`,
+          credentials: 'include',
+          headers: {
+            // Pass the cursor to the server so it can resume the stream from the correct point
+            'X-Resume-Stream-Cursor': streamPartCursorRef.current.toString(),
+          },
+        };
+      },
     }),
     onData: (dataPart) => {
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
@@ -87,20 +106,31 @@ export function Chat({
       }
     },
     onFinish: () => {
+      streamPartCursorRef.current = 0;
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      console.log('[Chat onError] Error occurred:', error);
+
+      // For now, just log network errors but don't try to resume
+      // The resumeStream() API is designed for page reloads, not mid-stream reconnections
+      // Mid-stream reconnections cause duplicate messages because all chunks are replayed
       if (error instanceof ChatSDKError) {
         toast({
           type: 'error',
           description: error.message,
         });
+      } else {
+        // Network error - the backend will continue streaming and save the full response
+        console.warn(
+          '[Chat onError] Network error during streaming. Backend will complete the response.',
+        );
       }
     },
   });
 
   const searchParams = useSearchParams();
-  const query = searchParams.get('query');
+  const query = searchParams?.get('query');
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
@@ -118,11 +148,21 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
-  useAutoResume({
-    autoResume,
-    initialMessages,
+  useEffect(() => {
+    console.log('[Chat] status', status);
+  }, [status]);
+
+  // Automatically resume stream if an error occurs
+  useErrorReconnect({
     resumeStream,
-    setMessages,
+    status,
+  });
+
+  // Automatically reconnect stream if it times out (e.g., due to 60s proxy timeout)
+  useInactivityReconnect({
+    resumeStream,
+    messages,
+    maxAttempts: 15,
   });
 
   return (

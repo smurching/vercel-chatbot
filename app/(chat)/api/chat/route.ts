@@ -1,7 +1,5 @@
 import {
   convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
   type LanguageModelUsage,
   streamText,
 } from 'ai';
@@ -31,13 +29,14 @@ import {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
 } from '@/databricks/stream-transformers/databricks-tool-calling';
+import { streamCache } from '@/lib/stream-cache';
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
-  console.log('CHAT POST REQUEST');
+  console.log(`CHAT POST REQUEST ${Date.now()}`);
 
   try {
     const json = await request.json();
@@ -111,36 +110,39 @@ export async function POST(request: Request) {
       ],
     });
 
+    // Clear any previous active stream for this chat
+    streamCache.clearActiveStream(id);
+
     let finalUsage: LanguageModelUsage | undefined;
+    const streamId = generateUUID();
 
-    const stream = createUIMessageStream({
-      execute: async ({ writer: dataStream }) => {
-        const model = await myProvider.languageModel(selectedChatModel);
-        const result = streamText({
-          model,
-          messages: convertToModelMessages(uiMessages),
-          onFinish: ({ usage }) => {
-            finalUsage = usage;
-            dataStream.write({ type: 'data-usage', data: usage });
-          },
-          // We use raw chunks to pick the tool results out of the stream
-          includeRawChunks: true,
-          tools: {
-            [DATABRICKS_TOOL_CALL_ID]: DATABRICKS_TOOL_DEFINITION,
-          },
-        });
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-            sendSources: true,
-          }),
-        );
+    const model = await myProvider.languageModel(selectedChatModel);
+    const result = streamText({
+      model,
+      messages: convertToModelMessages(uiMessages),
+      onFinish: ({ usage }) => {
+        finalUsage = usage;
       },
-      generateId: generateUUID,
+      // We use raw chunks to pick the tool results out of the stream
+      includeRawChunks: true,
+      tools: {
+        [DATABRICKS_TOOL_CALL_ID]: DATABRICKS_TOOL_DEFINITION,
+      },
+    });
+
+    return result.toUIMessageStreamResponse({
+      originalMessages: uiMessages,
+      generateMessageId: generateUUID,
+      sendReasoning: true,
+      sendSources: true,
       onFinish: async ({ messages }) => {
+        console.log('Finished message stream! Saving messages...');
+        // Only save assistant messages - user message was already saved above
+        const assistantMessages = messages.filter(
+          (m) => m.role === 'assistant',
+        );
         await saveMessages({
-          messages: messages.map((message) => ({
+          messages: assistantMessages.map((message) => ({
             id: message.id,
             role: message.role,
             parts: message.parts,
@@ -160,6 +162,8 @@ export async function POST(request: Request) {
             console.warn('Unable to persist last usage for chat', id, err);
           }
         }
+
+        streamCache.clearActiveStream(id);
       },
       onError: (error) => {
         console.error('Stream error:', error);
@@ -167,15 +171,16 @@ export async function POST(request: Request) {
           'Stack trace:',
           error instanceof Error ? error.stack : 'No stack',
         );
+
         return 'Oops, an error occurred!';
       },
-    });
-
-    // Return the stream as a response
-    return createUIMessageStreamResponse({
-      stream,
-      status: 200,
-      statusText: 'OK',
+      consumeSseStream({ stream }) {
+        streamCache.storeStream({
+          streamId,
+          chatId: id,
+          stream,
+        });
+      },
     });
   } catch (error) {
     if (error instanceof ChatSDKError) {
