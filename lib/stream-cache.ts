@@ -295,9 +295,8 @@ export function cacheableToReadable<T>(
      * cache so it can stop its background reader.
      */
     cancel(reason) {
-      // If the cache wants to do something special on cancel you can
-      // expose a `abort` method; for now we just call `close()`.
-      cache.close();
+      console.log('[StreamCache] cancel', reason);
+      // We don't close the underlying cache when this cancels since new consumers may be started
     },
   });
 }
