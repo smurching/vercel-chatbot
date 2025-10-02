@@ -250,7 +250,8 @@ const databricksMiddleware: LanguageModelV2Middleware = {
           out.forEach((transformedChunk) => {
             if (
               transformedChunk.type === 'text-delta' ||
-              transformedChunk.type === 'text-start'
+              transformedChunk.type === 'text-start' ||
+              transformedChunk.type === 'text-end'
             ) {
               if (deltaEndIds.has(transformedChunk.id)) {
                 // If we already have a delta end for this id, don't write it again
