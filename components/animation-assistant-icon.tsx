@@ -24,7 +24,6 @@ export const AnimatedAssistantIcon = ({
    *  animation objects so each can have its own timing / easing.
    * ----------------------------------------------------------------- */
   const scaleControls = useAnimation(); // “pulse‑scale‑up”
-  const innerScaleControls = useAnimation(); // “pulse‑scale‑down”
   const rotateControls = useAnimation(); // “pulse‑rotate”
 
   useEffect(() => {
