@@ -31,62 +31,45 @@ but has some [known limitations](#known-limitations) for other use cases. Work i
 ## Prerequisites
 
 1. **Databricks serving endpoint**: you need access to a Databricks workspace containing the Agent Bricks or custom agent serving endpoint to chat with. 
-2. **Databricks database instance**:
-   - [Create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
-3. **Set up Databricks authentication**
+2. **Set up Databricks authentication**
    - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
-   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
-   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
+   - Run `export DATABRICKS_CONFIG_PROFILE='your_profile_name'`, replacing `your_profile_name` with the name of a CLI profile for configuring authentication
+   - Run `databricks auth login --profile "$DATABRICKS_CONFIG_PROFILE"` to configure authentication for your workspace under the named profile
+   
 
 ## Deployment
 
-### Using Databricks Asset Bundles (Recommended)
+This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.com/aws/en/dev-tools/bundles/apps-tutorial) configuration that simplifies deployment by automatically creating and managing all required resources.
 
-This project includes a Databricks Asset Bundle (DAB) configuration that simplifies deployment by automatically creating and managing all required resources.
+Note: you can specify the value of `serving_endpoint_name` (the name of the custom code agent or Agent Bricks endpoint to chat with) 
+in `databricks.yml` to avoid needing to specify it in the commands below.
 
-#### Prerequisites
-
-1. **Databricks CLI**: Version 0.269.0 or higher
+1. **Databricks authentication**: Ensure auth is configured as described in [Prerequisites](#prerequisites).
+2. **Validate the bundle configuration**:
    ```bash
-   databricks --version
-   ```
-
-2. **Authentication**: Set up your Databricks workspace credentials
-   ```bash
-   export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
-   export DATABRICKS_TOKEN="your-access-token"
-   ```
-
-3. **Model Serving Endpoint**: Create a serving endpoint in your Databricks workspace before deployment
-
-#### Deploy with Databricks Asset Bundles
-
-1. **Validate the bundle configuration**:
-   ```bash
-   databricks bundle validate -t dev --var serving_endpoint_name="your-serving-endpoint-name"
+   databricks bundle validate --var serving_endpoint_name="your-serving-endpoint-name"
    ```
 
 2. **Deploy the bundle** (creates Lakebase instance, database catalog, and app):
    ```bash
-   databricks bundle deploy -t dev --var serving_endpoint_name="your-serving-endpoint-name"
+   databricks bundle deploy --var serving_endpoint_name="your-serving-endpoint-name"
    ```
 
    This creates:
-   - **Lakebase database instance** with PostgreSQL native login
-   - **Database catalog** registered in Unity Catalog
+   - **Lakebase database instance** for persisting chat history
    - **App resource** ready to start
 
-3. **View deployment summary**:
+3. **Start the app**:
    ```bash
-   databricks bundle summary -t dev
+   databricks bundle run databricks_chatbot
    ```
 
-4. **Start the app**:
+4. **View deployment summary**:
    ```bash
-   databricks bundle run vercel_chatbot -t dev
+   databricks bundle summary
    ```
 
-#### Deployment Targets
+### Deployment Targets
 
 The bundle supports multiple environments:
 
@@ -99,27 +82,19 @@ To deploy to a specific target:
 databricks bundle deploy -t staging --var serving_endpoint_name="your-endpoint"
 ```
 
-#### Configuration
-
-The bundle is configured in `databricks.yml` with these key components:
-
-- **Database Instance**: Automatically provisions a Lakebase instance for storing chat history
-- **App**: Deploys the chatbot application with access to the serving endpoint and database instance
-
 ## Running Locally
 
 Before running the app locally, you should first deploy the app to Databricks following the steps 
 in [Deployment](#deployment). This is the simplest way to get the required database instance set up with the correct permissions,
 so that both you and your app service principal can connect to the database.
 
-
 ### Setup Steps
 
 1. **Clone and install**:
    ```bash
    git clone https://github.com/databricks/app-templates
-   cd e2e-chatbot-app
-   pnpm install
+   cd e2e-chatbot-app-next
+   npm install
    ```
 
 2. **Set up environment variables**:
@@ -132,11 +107,6 @@ so that both you and your app service principal can connect to the database.
 3. **Run the application**:
    ```bash
    npm run dev
-   ```
-
-   Or using pnpm:
-   ```bash
-   pnpm dev
    ```
 
    The app starts on [localhost:3000](http://localhost:3000)
