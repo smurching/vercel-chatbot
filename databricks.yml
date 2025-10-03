@@ -4,7 +4,7 @@ bundle:
 variables:
   serving_endpoint_name:
     description: "Name of the model serving endpoint to be used by the app"
-    default: "ka-c6b27577-endpoint"
+#    default: "..." # TODO: specify a default value here to avoid needing to specify it on each deployment
 
   database_instance_name:
     description: "Name of the Lakebase database instance"
@@ -46,21 +46,15 @@ targets:
   dev:
     mode: development
     default: true
-    workspace:
-      host: https://e2-dogfood.staging.cloud.databricks.com
     variables:
       database_instance_name: "chatbot-lakebase-dev"
 
   staging:
     mode: production
-    workspace:
-      host: https://e2-dogfood.staging.cloud.databricks.com
     variables:
       database_instance_name: "chatbot-lakebase-staging"
 
   prod:
     mode: production
-    workspace:
-      host: https://e2-dogfood.staging.cloud.databricks.com
     variables:
       database_instance_name: "chatbot-lakebase-prod"

@@ -22,7 +22,7 @@ For additional documentation and details, see the [original repository](https://
 **NOTE**: this template provides a fully functional chat app for custom code agents and Agent Bricks deployed on Databricks,
 but has some [known limitations](#known-limitations) for other use cases. Work is in progress on addressing these limitations.
 
-## Key Databricks Features
+## Features
 
 - **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent serving endpoints and Agent Bricks
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
@@ -64,7 +64,7 @@ in `databricks.yml` to avoid needing to specify it in the commands below.
    databricks bundle run databricks_chatbot
    ```
 
-4. **View deployment summary**:
+4. **View deployment summary** (useful for debugging deployment issues):
    ```bash
    databricks bundle summary
    ```
@@ -84,9 +84,9 @@ databricks bundle deploy -t staging --var serving_endpoint_name="your-endpoint"
 
 ## Running Locally
 
-Before running the app locally, you should first deploy the app to Databricks following the steps 
-in [Deployment](#deployment). This is the simplest way to get the required database instance set up with the correct permissions,
-so that both you and your app service principal can connect to the database.
+**Before running the app locally, you should first deploy the app to Databricks following the steps 
+in [Deployment](#deployment)**. This is the simplest way to get the required database instance set up with the correct permissions,
+so that both you and your app service principal can connect to the database, with database migrations already applied.
 
 ### Setup Steps
 
@@ -102,7 +102,7 @@ so that both you and your app service principal can connect to the database.
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` with your credentials
+   Address the TODOs in `.env.local`, specifying your Databricks CLI profile and database connection details. 
 
 3. **Run the application**:
    ```bash
