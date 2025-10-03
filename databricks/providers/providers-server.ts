@@ -1,19 +1,6 @@
-import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { getHostUrl } from '@/databricks/utils/databricks-host-utils';
-import type {
-  LanguageModelV2,
-  LanguageModelV2Middleware,
-  LanguageModelV2StreamPart,
-} from '@ai-sdk/provider';
-import { composeDatabricksStreamPartTransformers } from '../stream-transformers/databricks-stream-part-transformers';
-import {
-  applyDatabricksToolCallStreamPartTransform,
-  DATABRICKS_TOOL_CALL_ID,
-} from '../stream-transformers/databricks-tool-calling';
-import { applyDatabricksTextPartTransform } from '../stream-transformers/databricks-text-parts';
-import { applyDatabricksRawChunkStreamPartTransform } from '../stream-transformers/databricks-raw-chunk-transformer';
+import type { LanguageModelV2 } from '@ai-sdk/provider';
 
+import { getHostUrl } from '@/databricks/utils/databricks-host-utils';
 // Import auth module directly
 import {
   getDatabricksToken,
@@ -21,6 +8,7 @@ import {
   getDatabricksUserIdentity,
   getCachedCliHost,
 } from '@/databricks/auth/databricks-auth';
+import { createDatabricksProvider } from './databricks-provider';
 
 // Use centralized authentication - only on server side
 async function getProviderToken(): Promise<string> {
@@ -75,7 +63,7 @@ async function getWorkspaceHostname(): Promise<string> {
 }
 
 // Custom fetch function to transform Databricks responses to OpenAI format
-const databricksFetch: typeof fetch = async (input, init) => {
+export const databricksFetch: typeof fetch = async (input, init) => {
   const url = input.toString();
 
   // Log the request being sent to Databricks
@@ -159,14 +147,13 @@ const databricksFetch: typeof fetch = async (input, init) => {
   });
 };
 
-let oauthProviderCache: ReturnType<typeof createOpenAI> | null = null;
+type CachedProvider = ReturnType<typeof createDatabricksProvider>;
+let oauthProviderCache: CachedProvider | null = null;
 let oauthProviderCacheTime = 0;
 const PROVIDER_CACHE_DURATION = 5 * 60 * 1000; // Cache provider for 5 minutes
 
 // Helper function to get or create the Databricks provider with OAuth
-async function getOrCreateDatabricksProvider(): Promise<
-  ReturnType<typeof createOpenAI>
-> {
+async function getOrCreateDatabricksProvider(): Promise<CachedProvider> {
   // Check if we have a cached provider that's still fresh
   if (
     oauthProviderCache &&
@@ -181,9 +168,8 @@ async function getOrCreateDatabricksProvider(): Promise<
   const hostname = await getWorkspaceHostname();
 
   // Create provider with fetch that always uses fresh token
-  const provider = createOpenAI({
+  const provider = createDatabricksProvider({
     baseURL: `${hostname}/serving-endpoints`,
-    apiKey: token,
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       // Always get fresh token for each request (will use cache if valid)
       const currentToken = await getProviderToken();
@@ -210,95 +196,6 @@ if (!process.env.DATABRICKS_SERVING_ENDPOINT) {
 }
 
 const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT;
-const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
-
-const databricksMiddleware: LanguageModelV2Middleware = {
-  transformParams: async ({ params }) => {
-    return {
-      ...params,
-      // Filter out the DATABRICKS_TOOL_CALL_ID tool
-      tools: params.tools?.filter(
-        (tool) => tool.name !== DATABRICKS_TOOL_CALL_ID,
-      ),
-    };
-  },
-  wrapGenerate: async ({ doGenerate }) => doGenerate(),
-  wrapStream: async ({ doStream }) => {
-    const { stream, ...rest } = await doStream();
-    let lastChunk = null as LanguageModelV2StreamPart | null;
-    const transformerStreamParts = composeDatabricksStreamPartTransformers(
-      // Filter out raw chunks except the ones we want to keep
-      applyDatabricksRawChunkStreamPartTransform,
-      // Add text-start and text-end chunks
-      applyDatabricksTextPartTransform,
-      // Transform tool call stream parts
-      applyDatabricksToolCallStreamPartTransform,
-    );
-
-    const deltaEndIds = new Set<string>();
-
-    const transformStream = new TransformStream<
-      LanguageModelV2StreamPart,
-      LanguageModelV2StreamPart
-    >({
-      transform(chunk, controller) {
-        try {
-          // Apply transformation functions to the incoming chunks
-          const { out } = transformerStreamParts([chunk], lastChunk);
-
-          // Enqueue the transformed chunks with deduplication
-          out.forEach((transformedChunk) => {
-            if (
-              transformedChunk.type === 'text-delta' ||
-              transformedChunk.type === 'text-start' ||
-              transformedChunk.type === 'text-end'
-            ) {
-              if (deltaEndIds.has(transformedChunk.id)) {
-                // If we already have a delta end for this id, don't write it again
-                return;
-              }
-            }
-            if (transformedChunk.type === 'text-end') {
-              /**
-               * We register when a delta ends.
-               * We rely on response.output_item.done chunks to display non streamed data
-               * so we need to deduplicate them with their corresponding delta chunks.
-               */
-              deltaEndIds.add(transformedChunk.id);
-            }
-            controller.enqueue(transformedChunk);
-          });
-
-          // Update the last chunk
-          lastChunk = out[out.length - 1] ?? lastChunk;
-        } catch (error) {
-          console.error('Error in databricksMiddleware transform:', error);
-          console.error(
-            'Stack trace:',
-            error instanceof Error ? error.stack : 'No stack available',
-          );
-          // Continue processing by passing through the original chunk
-          controller.enqueue(chunk);
-        }
-      },
-      flush(controller) {
-        try {
-          // Finally, if there's a dangling text-delta, close it
-          if (lastChunk?.type === 'text-delta') {
-            controller.enqueue({ type: 'text-end', id: lastChunk.id });
-          }
-        } catch (error) {
-          console.error('Error in databricksMiddleware flush:', error);
-        }
-      },
-    });
-
-    return {
-      stream: stream.pipeThrough(transformStream),
-      ...rest,
-    };
-  },
-};
 
 const endpointDetailsCache = new Map<
   string,
@@ -343,11 +240,11 @@ interface SmartProvider {
   languageModel(id: string): Promise<any> | any;
 }
 
-class OAuthAwareProvider implements SmartProvider {
+export class OAuthAwareProvider implements SmartProvider {
   private modelCache = new Map<string, { model: any; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  async languageModel(id: string): Promise<any> {
+  async languageModel(id: string): Promise<LanguageModelV2> {
     const endpointDetails = await getEndpointDetails(servingEndpoint);
     // Check cache first
     const cached = this.modelCache.get(id);
@@ -361,36 +258,26 @@ class OAuthAwareProvider implements SmartProvider {
     // Get the OAuth provider
     const provider = await getOrCreateDatabricksProvider();
 
-    let baseModel: LanguageModelV2;
-    if (id === 'title-model' || id === 'artifact-model') {
-      baseModel = provider.chat(databricksChatEndpoint);
-    } else {
-      if (endpointDetails.task?.includes('responses')) {
-        baseModel = provider.responses(servingEndpoint);
-      } else if (endpointDetails.task?.includes('chat')) {
-        baseModel = provider.chat(servingEndpoint);
-      } else {
-        // Fall back to responses
-        baseModel = provider.responses(servingEndpoint);
+    const model = (() => {
+      if (id === 'title-model' || id === 'artifact-model') {
+        console.log('TITLE MODEL');
+        return provider.fmapi('databricks-meta-llama-3-3-70b-instruct');
       }
-    }
-
-    let finalModel: LanguageModelV2;
-    if (id === 'chat-model' || id === 'chat-model-reasoning') {
-      finalModel = wrapLanguageModel({
-        model: baseModel,
-        middleware: [
-          extractReasoningMiddleware({ tagName: 'think' }),
-          databricksMiddleware,
-        ],
-      });
-    } else {
-      finalModel = baseModel;
-    }
+      switch (endpointDetails.task) {
+        case 'agent/v2/chat':
+          return provider.chatAgent(servingEndpoint);
+        case 'agent/v2/responses':
+          return provider.responsesAgent(servingEndpoint);
+        case 'llm/v1/chat':
+          return provider.fmapi(servingEndpoint);
+        default:
+          return provider.responsesAgent(servingEndpoint);
+      }
+    })();
 
     // Cache the model
-    this.modelCache.set(id, { model: finalModel, timestamp: Date.now() });
-    return finalModel;
+    this.modelCache.set(id, { model: model, timestamp: Date.now() });
+    return model;
   }
 }
 
