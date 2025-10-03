@@ -5,7 +5,6 @@ import type {
   LanguageModelV2TextPart,
 } from '@ai-sdk/provider';
 import {
-  type FetchFunction,
   type ParseResult,
   combineHeaders,
   createEventSourceResponseHandler,
@@ -13,13 +12,8 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
-
-type DatabricksLanguageModelConfig = {
-  provider: string;
-  headers: () => Record<string, string | undefined>;
-  url: (options: { modelId: string; path: string }) => string;
-  fetch?: FetchFunction;
-};
+import type { DatabricksLanguageModelConfig } from '../databricks-language-model';
+import { getDatabricksLanguageModelTransformStream } from '../databricks-language-model-transform-stream';
 
 export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -95,48 +89,53 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
     let finishReason: LanguageModelV2FinishReason = 'unknown';
 
     return {
-      stream: response.pipeThrough(
-        new TransformStream<
-          ParseResult<z.infer<typeof chatAgentDeltaSchema>>,
-          LanguageModelV2StreamPart
-        >({
-          start(controller) {
-            controller.enqueue({ type: 'stream-start', warnings: [] });
-          },
+      stream: response
+        .pipeThrough(
+          new TransformStream<
+            ParseResult<z.infer<typeof chatAgentDeltaSchema>>,
+            LanguageModelV2StreamPart
+          >({
+            start(controller) {
+              controller.enqueue({ type: 'stream-start', warnings: [] });
+            },
 
-          transform(chunk, controller) {
-            console.log('[DatabricksChatAgentLanguageModel] transform', chunk);
-            if (options.includeRawChunks) {
-              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
-            }
+            transform(chunk, controller) {
+              console.log(
+                '[DatabricksChatAgentLanguageModel] transform',
+                chunk,
+              );
+              if (options.includeRawChunks) {
+                controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+              }
 
-            // // handle failed chunk parsing / validation:
-            if (!chunk.success) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
-              return;
-            }
+              // // handle failed chunk parsing / validation:
+              if (!chunk.success) {
+                finishReason = 'error';
+                controller.enqueue({ type: 'error', error: chunk.error });
+                return;
+              }
 
-            controller.enqueue({
-              type: 'text-delta',
-              id: chunk.value.id,
-              delta: chunk.value.delta.content,
-            });
-          },
+              controller.enqueue({
+                type: 'text-delta',
+                id: chunk.value.id,
+                delta: chunk.value.delta.content,
+              });
+            },
 
-          flush(controller) {
-            controller.enqueue({
-              type: 'finish',
-              finishReason,
-              usage: {
-                inputTokens: 0,
-                outputTokens: 0,
-                totalTokens: 0,
-              },
-            });
-          },
-        }),
-      ),
+            flush(controller) {
+              controller.enqueue({
+                type: 'finish',
+                finishReason,
+                usage: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  totalTokens: 0,
+                },
+              });
+            },
+          }),
+        )
+        .pipeThrough(getDatabricksLanguageModelTransformStream()),
       request: { body },
       response: { headers: responseHeaders },
     };
