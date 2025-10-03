@@ -1,5 +1,6 @@
-import { getHostUrl } from '@/databricks/utils/databricks-host-utils';
+import type { LanguageModelV2 } from '@ai-sdk/provider';
 
+import { getHostUrl } from '@/databricks/utils/databricks-host-utils';
 // Import auth module directly
 import {
   getDatabricksToken,
@@ -195,7 +196,6 @@ if (!process.env.DATABRICKS_SERVING_ENDPOINT) {
 }
 
 const servingEndpoint = process.env.DATABRICKS_SERVING_ENDPOINT;
-const databricksChatEndpoint = 'databricks-meta-llama-3-3-70b-instruct';
 
 const endpointDetailsCache = new Map<
   string,
@@ -240,11 +240,11 @@ interface SmartProvider {
   languageModel(id: string): Promise<any> | any;
 }
 
-class OAuthAwareProvider implements SmartProvider {
+export class OAuthAwareProvider implements SmartProvider {
   private modelCache = new Map<string, { model: any; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  async languageModel(id: string): Promise<any> {
+  async languageModel(id: string): Promise<LanguageModelV2> {
     const endpointDetails = await getEndpointDetails(servingEndpoint);
     // Check cache first
     const cached = this.modelCache.get(id);
@@ -260,7 +260,8 @@ class OAuthAwareProvider implements SmartProvider {
 
     const model = (() => {
       if (id === 'title-model' || id === 'artifact-model') {
-        return provider.fmapi(databricksChatEndpoint);
+        console.log('TITLE MODEL');
+        return provider.fmapi('databricks-meta-llama-3-3-70b-instruct');
       }
       switch (endpointDetails.task) {
         case 'agent/v2/chat':

@@ -6,6 +6,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { DatabricksChatAgentLanguageModel } from './chat-agent-language-model/chat-agent-language-model';
 import { DatabricksResponsesAgentLanguageModel } from './responses-agent-language-model/responses-agent-language-model';
+import { DatabricksFmapiLanguageModel } from './fmapi-language-model/fmapi-language-model';
 
 export interface DatabricksProvider extends ProviderV2 {
   /** Agents */
@@ -55,6 +56,14 @@ export const createDatabricksProvider = (
       provider,
     });
 
+  const createFmapi = (modelId: string): LanguageModelV2 =>
+    new DatabricksFmapiLanguageModel(modelId, {
+      url: ({ path }) => `${baseUrl}${path}`,
+      headers: getHeaders,
+      fetch,
+      provider,
+    });
+
   const notImplemented = (name: string) => {
     return () => {
       throw new Error(`${name} is not supported yet`);
@@ -64,7 +73,7 @@ export const createDatabricksProvider = (
   return {
     chatAgent: createChatAgent,
     responsesAgent: createResponsesAgent,
-    fmapi: notImplemented('FMAPI'),
+    fmapi: createFmapi,
     imageModel: notImplemented('ImageModel'),
     textEmbeddingModel: notImplemented('TextEmbeddingModel'),
     languageModel: notImplemented('LanguageModel'),

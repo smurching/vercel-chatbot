@@ -1,5 +1,5 @@
 import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
-import type { DatabricksStreamPartTransformer } from './databricks-stream-part-transformers';
+import type { DatabricksStreamPartTransformer } from './compose-stream-part-transformers';
 import { isToolCallOutputStreamPart } from './databricks-tool-calling';
 import { isRawAssistantMessagePart } from './databricks-text-parts';
 

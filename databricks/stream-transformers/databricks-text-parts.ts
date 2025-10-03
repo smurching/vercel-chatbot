@@ -1,5 +1,5 @@
 import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
-import type { DatabricksStreamPartTransformer } from './databricks-stream-part-transformers';
+import type { DatabricksStreamPartTransformer } from './compose-stream-part-transformers';
 
 export const applyDatabricksTextPartTransform: DatabricksStreamPartTransformer<
   LanguageModelV2StreamPart

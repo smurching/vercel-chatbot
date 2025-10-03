@@ -7,7 +7,7 @@ import type {
 } from '@ai-sdk/provider';
 import type { DatabricksLanguageModelConfig } from '../databricks-language-model';
 import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/stream-transformers/databricks-tool-calling';
-import { getDatabricksLanguageModelTransformStream } from '../databricks-language-model-transform-stream';
+import { getDatabricksLanguageModelTransformStream } from '@/databricks/stream-transformers/databricks-stream-transformer';
 
 export class DatabricksResponsesAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
