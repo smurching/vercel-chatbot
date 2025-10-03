@@ -111,13 +111,9 @@ so that both you and your app service principal can connect to the database, wit
 
 ## Known limitations
 * This chat app only supports the following Databricks serving endpoint types (Foundation Model API endpoints are not supported):
-  * Custom code agents that implement the ResponsesAgent interface and support streaming output via `predict_stream`. This covers any agent built following the [recommended approach](https://docs.databricks.com/aws/en/generative-ai/agent-framework/author-agent) for authoring agents.
-  * Agent Bricks endpoints
-* When deployed, the chat app assumes it has access to an isolated database instance, and in particular that it is the owner of
-  the `ai_chatbot` schema. If you'd like to share a database instance across chatbot apps (using different schemas to isolate the chat apps),
-  update references to the `ai_chatbot` schema in the codebase, rerun `npm run db:generate` to regenerate database migrations, and then
-  redeploy the app.
-* Limited support for surfacing internal errors during agent execution to users 
+  * [Custom code agents](https://docs.databricks.com/aws/en/generative-ai/agent-framework/author-agent) deployed via Agent Framework, and which implement the ResponsesAgent interface and support streaming output via `predict_stream`. This covers any agent built following the [recommended approach](https://docs.databricks.com/aws/en/generative-ai/agent-framework/author-agent) for authoring agents.
+  * [Agent Bricks endpoints](https://docs.databricks.com/aws/en/generative-ai/agent-bricks/)
+* No support for surfacing internal errors during agent execution to users 
 * No support for image or other multi-modal inputs
 * The most common and officially recommended authentication methods for Databricks are supported: Databricks CLI auth for local development, and Databricks service principal auth for deployed apps. Other authentication mechanisms (PAT, Azure MSI, etc) are not currently supported.
 * We create one database per app, because the app code targets a fixed `ai_chatbot` schema within the database instance. To host multiple apps out of the same instance, you can:
