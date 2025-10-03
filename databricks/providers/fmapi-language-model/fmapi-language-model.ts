@@ -1,6 +1,8 @@
 import type {
   LanguageModelV2,
+  LanguageModelV2Content,
   LanguageModelV2FinishReason,
+  LanguageModelV2Message,
   LanguageModelV2StreamPart,
   LanguageModelV2TextPart,
 } from '@ai-sdk/provider';
@@ -9,6 +11,7 @@ import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonErrorResponseHandler,
+  createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
@@ -37,10 +40,65 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   async doGenerate(
     options: Parameters<LanguageModelV2['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    // TODO: Implement non streaming generation
+    const body = {
+      model: this.modelId,
+      stream: false,
+      messages: options.prompt.map(messageToFmapi),
+    };
+
+    const { responseHeaders, value: response } = await postJsonToApi({
+      url: this.config.url({
+        path: '/chat/completions',
+        modelId: this.modelId,
+      }),
+      headers: combineHeaders(this.config.headers(), options.headers),
+      body,
+      successfulResponseHandler: createJsonResponseHandler(fmapiResponseSchema),
+      failedResponseHandler: createJsonErrorResponseHandler({
+        errorSchema: z.any(), // TODO: Implement error schema
+        errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
+        isRetryable: () => false,
+      }),
+      fetch: this.config.fetch,
+    });
+
+    const choice = response.choices[0];
+
+    const parts: LanguageModelV2Content[] = [];
+
+    if (typeof choice.message.content === 'string') {
+      const extractedParts = extractHostedFunctionCompletionsFromText(
+        choice.message.content,
+      );
+      if (extractedParts) {
+        for (const part of extractedParts) {
+          parts.push(part);
+        }
+      } else {
+        parts.push({ type: 'text', text: choice.message.content });
+      }
+    } else {
+      for (const part of choice.message.content ?? []) {
+        if (part.type === 'text') {
+          parts.push({ type: 'text', text: part.text });
+        } else if (part.type === 'image') {
+          // TODO: Handle images
+        } else if (part.type === 'reasoning') {
+          const summaryText = part.summary.filter(
+            (summary) => summary.type === 'summary_text',
+          );
+          for (const summary of summaryText) {
+            parts.push({
+              type: 'reasoning',
+              text: summary.text,
+            });
+          }
+        }
+      }
+    }
 
     return {
-      content: [],
+      content: parts,
       finishReason: 'stop',
       usage: {
         inputTokens: 0,
@@ -57,16 +115,7 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
     const body = {
       model: this.modelId,
       stream: true,
-      messages: options.prompt.map((message) => ({
-        role: message.role,
-        content:
-          typeof message.content === 'string'
-            ? message.content
-            : message.content
-                .filter((part) => part.type === 'text')
-                .map((part) => (part as LanguageModelV2TextPart).text)
-                .join('\n'),
-      })),
+      messages: options.prompt.map(messageToFmapi),
     };
 
     const { responseHeaders, value: response } = await postJsonToApi({
@@ -112,41 +161,53 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
                 return;
               }
 
-              for (const choice of chunk.value.choices) {
-                if (typeof choice.delta.content === 'string') {
-                  const parts = extractPartsFromTextCompletion(
-                    choice.delta.content,
-                    chunk.value.id,
-                  );
-                  for (const part of parts) {
+              const choice = chunk.value.choices[0];
+
+              if (typeof choice.delta.content === 'string') {
+                const parts = extractPartsFromTextCompletion(
+                  choice.delta.content,
+                  chunk.value.id,
+                );
+                for (const part of parts) {
+                  if (part.type === 'text') {
+                    controller.enqueue({
+                      type: 'text-delta',
+                      id: chunk.value.id,
+                      delta: part.text,
+                    });
+                  }
+                  if (part.type === 'tool-call') {
                     controller.enqueue(part);
                   }
-                } else if (Array.isArray(choice.delta.content)) {
-                  for (const part of choice.delta.content) {
-                    switch (part.type) {
-                      case 'text':
+                  if (part.type === 'tool-result') {
+                    controller.enqueue(part);
+                  }
+                }
+              } else if (Array.isArray(choice.delta.content)) {
+                for (const part of choice.delta.content) {
+                  switch (part.type) {
+                    case 'text':
+                      controller.enqueue({
+                        type: 'text-delta',
+                        id: chunk.value.id,
+                        delta: part.text,
+                      });
+                      break;
+                    case 'image':
+                      // Not supported yet
+                      break;
+                    case 'reasoning': {
+                      const summaryText = part.summary.filter(
+                        (summary) => summary.type === 'summary_text',
+                      );
+                      for (const summary of summaryText) {
                         controller.enqueue({
-                          type: 'text-delta',
+                          type: 'reasoning-delta',
                           id: chunk.value.id,
-                          delta: part.text,
+                          delta: summary.text,
                         });
-                        break;
-                      case 'image':
-                        // Not supported yet
-                        break;
-                      case 'reasoning': {
-                        const summaryText = part.summary.filter(
-                          (summary) => summary.type === 'summary_text',
-                        );
-                        for (const summary of summaryText) {
-                          controller.enqueue({
-                            type: 'reasoning-delta',
-                            id: chunk.value.id,
-                            delta: summary.text,
-                          });
-                        }
-                        break;
                       }
+                      break;
                     }
                   }
                 }
@@ -173,27 +234,49 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   }
 }
 
+const messageToFmapi = (message: LanguageModelV2Message) => {
+  return {
+    role: message.role,
+    /**
+     * TODO:
+     * - Handle other parts
+     * - Pass tagged tool calls back as text content
+     */
+    content:
+      typeof message.content === 'string'
+        ? message.content
+        : message.content
+            .filter((part) => part.type === 'text')
+            .map((part) => (part as LanguageModelV2TextPart).text)
+            .join('\n'),
+  };
+};
+
 const extractPartsFromTextCompletion = (
   text: string,
   completionId: string,
-): LanguageModelV2StreamPart[] => {
+): (ToolCallOrResult | LanguageModelV2TextPart)[] => {
   const parts = text.split(
     /(<uc_function_call>.*?<\/uc_function_call>|<uc_function_result>.*?<\/uc_function_result>)/,
   );
 
   return parts
     .filter((part) => part !== '')
-    .flatMap((part) => {
+    .flatMap((part): (ToolCallOrResult | LanguageModelV2TextPart)[] => {
       const hostedFunctionCompletions =
         extractHostedFunctionCompletionsFromText(part);
       if (hostedFunctionCompletions) return hostedFunctionCompletions;
-      return [{ type: 'text-delta', id: completionId, delta: part }];
+      return [{ type: 'text', text: part }];
     });
 };
 
+type ToolCallOrResult = Extract<
+  LanguageModelV2StreamPart,
+  { type: 'tool-call' | 'tool-result' }
+>;
 const extractHostedFunctionCompletionsFromText = (
   text: string,
-): LanguageModelV2StreamPart[] | null => {
+): ToolCallOrResult[] | null => {
   try {
     const trimmed = text.trim();
     const toolCall = getTaggedToolCall(trimmed);
@@ -314,6 +397,29 @@ const fmapiChunkSchema = z.object({
         content: z.union([z.string(), z.array(contentItemSchema)]).optional(),
       }),
       finish_reason: z.union([z.literal('stop'), z.null()]).optional(),
+    }),
+  ),
+});
+
+const fmapiResponseSchema = z.object({
+  id: z.string(),
+  created: z.number(),
+  model: z.string(),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  }),
+  choices: z.array(
+    z.object({
+      message: z.object({
+        role: z.union([
+          z.literal('assistant'),
+          z.literal('user'),
+          z.literal('tool'),
+        ]),
+        content: z.union([z.string(), z.array(contentItemSchema)]).optional(),
+      }),
     }),
   ),
 });
