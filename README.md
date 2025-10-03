@@ -13,35 +13,88 @@
 </p>
 <br/>
 
-This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) with Databricks-specific integrations for agents/LLMs, authentication, and conversation history persistence.
-For general features and additional documentation, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
 
-## Key Databricks Features
+This template is based on the [Vercel AI Chatbot](https://github.com/vercel/ai-chatbot) template, with Databricks-specific enhancements
+for authenticating to agents and database instances on Databricks.
 
-- **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent and Foundation Model serving endpoints
+For additional documentation and details, see the [original repository](https://github.com/vercel/ai-chatbot/blob/main/README.md).
+
+**NOTE**: this template provides a fully functional chat app for custom code agents and Agent Bricks deployed on Databricks,
+but has some [known limitations](#known-limitations) for other use cases. Work is in progress on addressing these limitations.
+
+## Features
+
+- **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent serving endpoints and Agent Bricks
 - **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
 - **Persistent Chat History**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration.
 
 ## Prerequisites
 
-1. **Databricks workspace access**
-2. **Create a database instance**:
-   - [Create a lakebase instance](https://docs.databricks.com/aws/en/oltp/instances/create/) for persisting chat history.
-3. **Set up Databricks authentication**
+1. **Databricks serving endpoint**: you need access to a Databricks workspace containing the Agent Bricks or custom agent serving endpoint to chat with. 
+2. **Set up Databricks authentication**
    - Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html)
-   - Run `databricks auth login [--profile name]` to configure authentication for your workspace, optionally under a named profile
-   - Set the `DATABRICKS_CONFIG_PROFILE` environment variable to the name of the profile you created, or set it to "DEFAULT" if you didn't specify any profile name.
+   - Run `export DATABRICKS_CONFIG_PROFILE='your_profile_name'`, replacing `your_profile_name` with the name of a CLI profile for configuring authentication
+   - Run `databricks auth login --profile "$DATABRICKS_CONFIG_PROFILE"` to configure authentication for your workspace under the named profile
+   
 
+## Deployment
+
+This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.com/aws/en/dev-tools/bundles/apps-tutorial) configuration that simplifies deployment by automatically creating and managing all required resources.
+
+Note: you can specify the value of `serving_endpoint_name` (the name of the custom code agent or Agent Bricks endpoint to chat with) 
+in `databricks.yml` to avoid needing to specify it in the commands below.
+
+1. **Databricks authentication**: Ensure auth is configured as described in [Prerequisites](#prerequisites).
+2. **Validate the bundle configuration**:
+   ```bash
+   databricks bundle validate --var serving_endpoint_name="your-serving-endpoint-name"
+   ```
+
+2. **Deploy the bundle** (creates Lakebase instance, database catalog, and app):
+   ```bash
+   databricks bundle deploy --var serving_endpoint_name="your-serving-endpoint-name"
+   ```
+
+   This creates:
+   - **Lakebase database instance** for persisting chat history
+   - **App resource** ready to start
+
+3. **Start the app**:
+   ```bash
+   databricks bundle run databricks_chatbot
+   ```
+
+4. **View deployment summary** (useful for debugging deployment issues):
+   ```bash
+   databricks bundle summary
+   ```
+
+### Deployment Targets
+
+The bundle supports multiple environments:
+
+- **dev** (default): Development environment
+- **staging**: Staging environment for testing
+- **prod**: Production environment
+
+To deploy to a specific target:
+```bash
+databricks bundle deploy -t staging --var serving_endpoint_name="your-endpoint"
+```
 
 ## Running Locally
+
+**Before running the app locally, you should first deploy the app to Databricks following the steps 
+in [Deployment](#deployment)**. This is the simplest way to get the required database instance set up with the correct permissions,
+so that both you and your app service principal can connect to the database, with database migrations already applied.
 
 ### Setup Steps
 
 1. **Clone and install**:
    ```bash
    git clone https://github.com/databricks/app-templates
-   cd e2e-chatbot-app
-   pnpm install
+   cd e2e-chatbot-app-next
+   npm install
    ```
 
 2. **Set up environment variables**:
@@ -49,62 +102,25 @@ For general features and additional documentation, see the [original repository]
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` with your credentials
+   Address the TODOs in `.env.local`, specifying your Databricks CLI profile and database connection details. 
 
 3. **Run the application**:
    ```bash
    npm run dev
    ```
 
-   Or using pnpm:
-   ```bash
-   pnpm dev
-   ```
+   The app starts on [localhost:3000](http://localhost:3000)
 
-   The app starts on [localhost:3000](http://localhost:3000) and automatically:
-   - Creates the database schema (`ai_chatbot`)
-   - Runs all necessary migrations
-   - Sets up OAuth token management
-
-## Deployment
-
-
-Set environment variables to specify the agent serving endpoint your app supports chatting with,
-and the database instance in which to persist chat history:  
-
-```bash
-export SERVING_ENDPOINT="your-serving-endpoint-name"
-export DATABASE_INSTANCE="your-database-instance-name"
-```
-
-Then, create the app:
-```bash
-databricks apps create --json '{
-  "name": "my-agent-chatbot",
-  "resources": [
-    {
-      "name": "serving-endpoint",
-      "serving_endpoint": {
-        "name": "'"$SERVING_ENDPOINT"'",
-        "permission": "CAN_QUERY"
-      }
-    },
-    {
-        "name": "database",
-        "database": {
-            "instance_name": "'"$DATABASE_INSTANCE"'",
-            "database_name": "databricks_postgres",
-            "permission": "CAN_CONNECT_AND_CREATE"
-         }
-     }
-  ]
-}'
-```
-
-Upload the source code to Databricks and deploy the app by running the following commands from the e2e-chatbot-app directory:
-
-```bash
-DATABRICKS_USERNAME=$(databricks current-user me | jq -r .userName)
-databricks sync . "/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
-databricks apps deploy my-agent-chatbot --source-code-path "/Workspace/Users/$DATABRICKS_USERNAME/e2e-chatbot-app"
-```
+## Known limitations
+* This chat app only supports the following Databricks serving endpoint types (Foundation Model API endpoints are not supported):
+  * Custom code agents that implement the ResponsesAgent interface and support streaming output via `predict_stream`. This covers any agent built following the [recommended approach](https://docs.databricks.com/aws/en/generative-ai/agent-framework/author-agent) for authoring agents.
+  * Agent Bricks endpoints
+* When deployed, the chat app assumes it has access to an isolated database instance, and in particular that it is the owner of
+  the `ai_chatbot` schema. If you'd like to share a database instance across chatbot apps (using different schemas to isolate the chat apps),
+  update references to the `ai_chatbot` schema in the codebase, rerun `npm run db:generate` to regenerate database migrations, and then
+  redeploy the app.
+* Limited support for surfacing internal errors during agent execution to users, while generating streaming and non-streaming agent output 
+* No support for custom_inputs/custom_outputs
+* No support for image/multi-modal inputs
+* We assume one database per app (can’t share a database across apps without creating a new schema in the database)
+* The most common and officially recommended authentication methods for Databricks are supported: Databricks CLI auth for local development, and Databricks service principal auth for deployed apps. Other authentication mechanisms (PAT, Azure MSI, etc) are not currently supported.
