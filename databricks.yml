@@ -1,10 +1,10 @@
 bundle:
-  name: vercel-chatbot
+  name: databricks-chatbot
 
 variables:
   serving_endpoint_name:
     description: "Name of the model serving endpoint to be used by the app"
-    default: "databricks-claude-3-7-sonnet"
+#    default: "..." # TODO: specify a default value here, or pass it at deployment time.
 
   database_instance_name:
     description: "Name of the Lakebase database instance"
@@ -25,9 +25,9 @@ resources:
       create_database_if_not_exists: true
 
   apps:
-    vercel_chatbot:
-      name: db-chatbot-tmpl-${bundle.target}
-      description: "Vercel chatbot application with Lakebase backend"
+    databricks_chatbot:
+      name: db-chatbot-smurching-${bundle.target}
+      description: "Chatbot UI for Agent Bricks and custom code agents"
       source_code_path: .
       resources:
         - name: serving-endpoint
