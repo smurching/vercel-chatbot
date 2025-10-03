@@ -14,6 +14,7 @@ import {
 import { z } from 'zod/v4';
 import type { DatabricksLanguageModelConfig } from '../databricks-language-model';
 import { getDatabricksLanguageModelTransformStream } from '../databricks-language-model-transform-stream';
+import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/stream-transformers/databricks-tool-calling';
 
 export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -81,7 +82,7 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
         isRetryable: () => false,
       }),
       successfulResponseHandler:
-        createEventSourceResponseHandler(chatAgentDeltaSchema),
+        createEventSourceResponseHandler(chatAgentChunkSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     });
@@ -92,7 +93,7 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
       stream: response
         .pipeThrough(
           new TransformStream<
-            ParseResult<z.infer<typeof chatAgentDeltaSchema>>,
+            ParseResult<z.infer<typeof chatAgentChunkSchema>>,
             LanguageModelV2StreamPart
           >({
             start(controller) {
@@ -115,11 +116,11 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
                 return;
               }
 
-              controller.enqueue({
-                type: 'text-delta',
-                id: chunk.value.id,
-                delta: chunk.value.delta.content,
-              });
+              for (const part of convertChatAgentMessageToMessagePart(
+                chunk.value.delta,
+              )) {
+                controller.enqueue(part);
+              }
             },
 
             flush(controller) {
@@ -142,11 +143,87 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   }
 }
 
-const chatAgentDeltaSchema = z.object({
-  delta: z.object({
-    role: z.string(),
-    content: z.string(),
-    id: z.string(),
+const convertChatAgentMessageToMessagePart = (
+  message: z.infer<typeof chatAgentMessageSchema>,
+): LanguageModelV2StreamPart[] => {
+  const parts = [];
+  if (message.role === 'assistant') {
+    if (message.content) {
+      parts.push({
+        type: 'text-delta',
+        id: message.id,
+        delta: message.content,
+      } satisfies LanguageModelV2StreamPart);
+    }
+    message.tool_calls?.forEach((toolCall) => {
+      parts.push({
+        type: 'tool-call',
+        toolCallId: toolCall.id,
+        input: toolCall.function.arguments,
+        toolName: toolCall.function.name,
+      } satisfies LanguageModelV2StreamPart);
+    });
+  } else if (message.role === 'tool') {
+    parts.push({
+      type: 'tool-result',
+      toolCallId: message.tool_call_id,
+      result: message.content,
+      toolName: DATABRICKS_TOOL_CALL_ID,
+    } satisfies LanguageModelV2StreamPart);
+  }
+  return parts;
+};
+
+// Zod schemas for Chat Agent, derived from LEGACY/chat-agent/types
+
+// Tool call schema
+const chatAgentToolCallSchema = z.object({
+  type: z.literal('function'),
+  function: z.object({
+    name: z.string(),
+    arguments: z.string(),
   }),
   id: z.string(),
+});
+
+// Message schemas (discriminated by role)
+const chatAgentAssistantMessageSchema = z.object({
+  role: z.literal('assistant'),
+  content: z.string(), // required, empty string allowed
+  id: z.string(),
+  name: z.string().optional(),
+  tool_calls: z.array(chatAgentToolCallSchema).optional(),
+});
+
+const chatAgentToolMessageSchema = z.object({
+  role: z.literal('tool'),
+  name: z.string(),
+  content: z.string(),
+  tool_call_id: z.string(),
+  id: z.string(),
+  attachments: z.record(z.string(), z.unknown()).optional(),
+});
+
+const chatAgentUserMessageSchema = z.object({
+  role: z.literal('user'),
+  content: z.string(),
+  id: z.string(),
+});
+
+const chatAgentMessageSchema = z.discriminatedUnion('role', [
+  chatAgentAssistantMessageSchema,
+  chatAgentToolMessageSchema,
+  chatAgentUserMessageSchema,
+]);
+
+// Stream chunk schema (used for SSE parsing)
+const chatAgentChunkSchema = z.object({
+  id: z.string(),
+  delta: chatAgentMessageSchema,
+});
+
+// Full response schema (not used in streaming handler, but kept for completeness)
+const chatAgentResponseSchema = z.object({
+  id: z.string(),
+  messages: z.array(chatAgentMessageSchema),
 });
