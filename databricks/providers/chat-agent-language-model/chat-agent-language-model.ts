@@ -1,5 +1,7 @@
 import type {
   LanguageModelV2,
+  LanguageModelV2CallOptions,
+  LanguageModelV2Content,
   LanguageModelV2FinishReason,
   LanguageModelV2StreamPart,
   LanguageModelV2TextPart,
@@ -8,6 +10,7 @@ import {
   type ParseResult,
   combineHeaders,
   createEventSourceResponseHandler,
+  createJsonResponseHandler,
   createJsonErrorResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
@@ -37,10 +40,50 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   async doGenerate(
     options: Parameters<LanguageModelV2['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    // TODO: Implement non streaming generation
+    const networkArgs = this.getArgs({
+      config: this.config,
+      options,
+      stream: false,
+      modelId: this.modelId,
+    });
+
+    const { value: response } = await postJsonToApi({
+      ...networkArgs,
+      successfulResponseHandler: createJsonResponseHandler(
+        chatAgentResponseSchema,
+      ),
+      failedResponseHandler: createJsonErrorResponseHandler({
+        errorSchema: z.any(), // TODO: Implement error schema
+        errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
+        isRetryable: () => false,
+      }),
+    });
+
+    const contentParts: LanguageModelV2Content[] = [];
+
+    for (const message of response.messages) {
+      if (message.role === 'assistant') {
+        contentParts.push({ type: 'text', text: message.content });
+        for (const part of message.tool_calls ?? []) {
+          contentParts.push({
+            type: 'tool-call',
+            toolCallId: part.id,
+            input: part.function.arguments,
+            toolName: part.function.name,
+          });
+        }
+      } else if (message.role === 'tool') {
+        contentParts.push({
+          type: 'tool-result',
+          toolCallId: message.tool_call_id,
+          result: message.content,
+          toolName: DATABRICKS_TOOL_CALL_ID,
+        });
+      }
+    }
 
     return {
-      content: [],
+      content: contentParts,
       finishReason: 'stop',
       usage: {
         inputTokens: 0,
@@ -54,28 +97,15 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   async doStream(
     options: Parameters<LanguageModelV2['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const body = {
-      model: this.modelId,
+    const networkArgs = this.getArgs({
+      config: this.config,
+      options,
       stream: true,
-      messages: options.prompt.map((message) => ({
-        role: message.role,
-        content:
-          typeof message.content === 'string'
-            ? message.content
-            : message.content
-                .filter((part) => part.type === 'text')
-                .map((part) => (part as LanguageModelV2TextPart).text)
-                .join('\n'),
-      })),
-    };
+      modelId: this.modelId,
+    });
 
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: this.config.url({
-        path: '/completions',
-        modelId: this.modelId,
-      }),
-      headers: combineHeaders(this.config.headers(), options.headers),
-      body,
+      ...networkArgs,
       failedResponseHandler: createJsonErrorResponseHandler({
         errorSchema: z.any(), // TODO: Implement error schema
         errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
@@ -83,8 +113,6 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
       }),
       successfulResponseHandler:
         createEventSourceResponseHandler(chatAgentChunkSchema),
-      abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
     });
 
     let finishReason: LanguageModelV2FinishReason = 'unknown';
@@ -137,8 +165,43 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
           }),
         )
         .pipeThrough(getDatabricksLanguageModelTransformStream()),
-      request: { body },
+      request: { body: networkArgs.body },
       response: { headers: responseHeaders },
+    };
+  }
+
+  private getArgs({
+    config,
+    options,
+    stream,
+    modelId,
+  }: {
+    options: LanguageModelV2CallOptions;
+    config: DatabricksLanguageModelConfig;
+    stream: boolean;
+    modelId: string;
+  }) {
+    return {
+      body: {
+        model: modelId,
+        stream,
+        messages: options.prompt.map((message) => ({
+          role: message.role,
+          content:
+            typeof message.content === 'string'
+              ? message.content
+              : message.content
+                  .filter((part) => part.type === 'text')
+                  .map((part) => (part as LanguageModelV2TextPart).text)
+                  .join('\n'),
+        })),
+      },
+      url: config.url({
+        path: '/completions',
+      }),
+      headers: combineHeaders(config.headers(), options.headers),
+      fetch: config.fetch,
+      abortSignal: options.abortSignal,
     };
   }
 }
@@ -173,8 +236,6 @@ const convertChatAgentMessageToMessagePart = (
   }
   return parts;
 };
-
-// Zod schemas for Chat Agent, derived from LEGACY/chat-agent/types
 
 // Tool call schema
 const chatAgentToolCallSchema = z.object({

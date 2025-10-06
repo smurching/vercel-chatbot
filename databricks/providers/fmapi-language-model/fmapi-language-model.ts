@@ -1,5 +1,6 @@
 import type {
   LanguageModelV2,
+  LanguageModelV2CallOptions,
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
   LanguageModelV2Message,
@@ -40,26 +41,21 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   async doGenerate(
     options: Parameters<LanguageModelV2['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    const body = {
-      model: this.modelId,
+    const networkArgs = this.getArgs({
+      config: this.config,
+      options,
       stream: false,
-      messages: options.prompt.map(messageToFmapi),
-    };
+      modelId: this.modelId,
+    });
 
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: this.config.url({
-        path: '/chat/completions',
-        modelId: this.modelId,
-      }),
-      headers: combineHeaders(this.config.headers(), options.headers),
-      body,
+      ...networkArgs,
       successfulResponseHandler: createJsonResponseHandler(fmapiResponseSchema),
       failedResponseHandler: createJsonErrorResponseHandler({
         errorSchema: z.any(), // TODO: Implement error schema
         errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
         isRetryable: () => false,
       }),
-      fetch: this.config.fetch,
     });
 
     const choice = response.choices[0];
@@ -112,19 +108,15 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   async doStream(
     options: Parameters<LanguageModelV2['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const body = {
-      model: this.modelId,
+    const networkArgs = this.getArgs({
+      config: this.config,
+      options,
       stream: true,
-      messages: options.prompt.map(messageToFmapi),
-    };
+      modelId: this.modelId,
+    });
 
     const { responseHeaders, value: response } = await postJsonToApi({
-      url: this.config.url({
-        path: '/chat/completions',
-        modelId: this.modelId,
-      }),
-      headers: combineHeaders(this.config.headers(), options.headers),
-      body,
+      ...networkArgs,
       failedResponseHandler: createJsonErrorResponseHandler({
         errorSchema: z.any(), // TODO: Implement error schema
         errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
@@ -133,7 +125,6 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
       successfulResponseHandler:
         createEventSourceResponseHandler(fmapiChunkSchema),
       abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
     });
 
     let finishReason: LanguageModelV2FinishReason = 'unknown';
@@ -228,29 +219,52 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
           }),
         )
         .pipeThrough(getDatabricksLanguageModelTransformStream()),
-      request: { body },
+      request: { body: networkArgs.body },
       response: { headers: responseHeaders },
     };
   }
-}
 
-const messageToFmapi = (message: LanguageModelV2Message) => {
-  return {
-    role: message.role,
-    /**
-     * TODO:
-     * - Handle other parts
-     * - Pass tagged tool calls back as text content
-     */
-    content:
-      typeof message.content === 'string'
-        ? message.content
-        : message.content
-            .filter((part) => part.type === 'text')
-            .map((part) => (part as LanguageModelV2TextPart).text)
-            .join('\n'),
-  };
-};
+  private getArgs({
+    config,
+    options,
+    stream,
+    modelId,
+  }: {
+    options: LanguageModelV2CallOptions;
+    config: DatabricksLanguageModelConfig;
+    stream: boolean;
+    modelId: string;
+  }) {
+    return {
+      url: config.url({
+        path: '/chat/completions',
+      }),
+      headers: combineHeaders(config.headers(), options.headers),
+      body: {
+        messages: options.prompt.map((message: LanguageModelV2Message) => {
+          return {
+            role: message.role,
+            /**
+             * TODO:
+             * - Handle other parts
+             * - Pass tagged tool calls back as text content
+             */
+            content:
+              typeof message.content === 'string'
+                ? message.content
+                : message.content
+                    .filter((part) => part.type === 'text')
+                    .map((part) => (part as LanguageModelV2TextPart).text)
+                    .join('\n'),
+          };
+        }),
+        stream,
+        model: modelId,
+        fetch: config.fetch,
+      },
+    };
+  }
+}
 
 const extractPartsFromTextCompletion = (
   text: string,

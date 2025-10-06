@@ -21,7 +21,7 @@ export class DatabricksResponsesAgentLanguageModel implements LanguageModelV2 {
     this.modelId = modelId;
     this.config = config;
     const openai = createOpenAI({
-      baseURL: config.url({ path: '', modelId: '' }),
+      baseURL: config.url({ path: '' }),
       fetch: config.fetch,
       apiKey: '__NOT_USED__',
     });
