@@ -21,8 +21,8 @@ import {
 import {
   convertChatAgentChunkToMessagePart,
   convertChatAgentResponseToMessagePart,
-  convertLanguageModelV2PromptToChatAgentResponse,
-} from './chat-agent-message-part-transformers';
+} from './chat-agent-to-content-part';
+import { convertLanguageModelV2PromptToChatAgentResponse } from './chat-agent-from-content-part';
 
 export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
