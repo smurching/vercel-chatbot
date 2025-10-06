@@ -7,6 +7,8 @@ import {
 import { DatabricksChatAgentLanguageModel } from './chat-agent-language-model/chat-agent-language-model';
 import { DatabricksResponsesAgentLanguageModel } from './responses-agent-language-model/responses-agent-language-model';
 import { DatabricksFmapiLanguageModel } from './fmapi-language-model/fmapi-language-model';
+import { wrapLanguageModel } from 'ai';
+import { getDatabricksMiddleware } from './databricks-middleware';
 
 export interface DatabricksProvider extends ProviderV2 {
   /** Agents */
@@ -41,27 +43,36 @@ export const createDatabricksProvider = (
   const provider = settings.provider ?? 'databricks';
 
   const createChatAgent = (modelId: string): LanguageModelV2 =>
-    new DatabricksChatAgentLanguageModel(modelId, {
-      url: ({ path }) => `${baseUrl}${path}`,
-      headers: getHeaders,
-      fetch,
-      provider,
+    wrapLanguageModel({
+      model: new DatabricksChatAgentLanguageModel(modelId, {
+        url: ({ path }) => `${baseUrl}${path}`,
+        headers: getHeaders,
+        fetch,
+        provider,
+      }),
+      middleware: getDatabricksMiddleware(),
     });
 
   const createResponsesAgent = (modelId: string): LanguageModelV2 =>
-    new DatabricksResponsesAgentLanguageModel(modelId, {
-      url: ({ path }) => `${baseUrl}${path}`,
-      headers: getHeaders,
-      fetch,
-      provider,
+    wrapLanguageModel({
+      model: new DatabricksResponsesAgentLanguageModel(modelId, {
+        url: ({ path }) => `${baseUrl}${path}`,
+        headers: getHeaders,
+        fetch,
+        provider,
+      }),
+      middleware: getDatabricksMiddleware(),
     });
 
   const createFmapi = (modelId: string): LanguageModelV2 =>
-    new DatabricksFmapiLanguageModel(modelId, {
-      url: ({ path }) => `${baseUrl}${path}`,
-      headers: getHeaders,
-      fetch,
-      provider,
+    wrapLanguageModel({
+      model: new DatabricksFmapiLanguageModel(modelId, {
+        url: ({ path }) => `${baseUrl}${path}`,
+        headers: getHeaders,
+        fetch,
+        provider,
+      }),
+      middleware: getDatabricksMiddleware(),
     });
 
   const notImplemented = (name: string) => {
