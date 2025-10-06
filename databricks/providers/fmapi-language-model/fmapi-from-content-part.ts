@@ -3,6 +3,7 @@ import type {
   LanguageModelV2ToolResultPart,
 } from '@ai-sdk/provider';
 import type { FmapiMessage } from './fmapi-schema';
+import { serializeToolCall, serializeToolResult } from './fmapi-tags';
 
 export const convertPromptToFmapiMessages = (
   prompt: LanguageModelV2Message[],
@@ -55,25 +56,25 @@ export const convertPromptToFmapiMessages = (
             break;
           }
           case 'tool-call': {
-            const tagged = JSON.stringify({
+            const tagged = serializeToolCall({
               id: part.toolCallId,
               name: part.toolName,
               arguments: part.input,
             });
             contentItems.push({
               type: 'text',
-              text: `<tool_call>${tagged}</tool_call>`,
+              text: tagged,
             });
             break;
           }
           case 'tool-result': {
-            const tagged = JSON.stringify({
+            const tagged = serializeToolResult({
               id: part.toolCallId,
               content: convertToolResultOutputToContentValue(part.output),
             });
             contentItems.push({
               type: 'text',
-              text: `<tool_call_result>${tagged}</tool_call_result>`,
+              text: tagged,
             });
             break;
           }
@@ -82,13 +83,13 @@ export const convertPromptToFmapiMessages = (
     } else if (message.role === 'tool') {
       for (const part of message.content) {
         if (part.type === 'tool-result') {
-          const tagged = JSON.stringify({
+          const tagged = serializeToolResult({
             id: part.toolCallId,
             content: convertToolResultOutputToContentValue(part.output),
           });
           contentItems.push({
             type: 'text',
-            text: `<tool_call_result>${tagged}</tool_call_result>`,
+            text: tagged,
           });
         }
       }

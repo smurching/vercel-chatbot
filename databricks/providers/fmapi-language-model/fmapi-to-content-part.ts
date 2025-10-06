@@ -3,7 +3,16 @@ import type {
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
 import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/stream-transformers/databricks-tool-calling';
-import type { FmapiChunk, FmapiResponse } from './fmapi-schema';
+import type {
+  FmapiChunk,
+  FmapiContentItem,
+  FmapiResponse,
+} from './fmapi-schema';
+import {
+  parseTaggedToolCall,
+  parseTaggedToolResult,
+  tagSplitRegex,
+} from './fmapi-tags';
 
 type ToolCallOrResult = Extract<
   LanguageModelV2StreamPart,
@@ -30,33 +39,7 @@ export const convertFmapiChunkToMessagePart = (
       }
     }
   } else if (Array.isArray(choice.delta.content)) {
-    for (const part of choice.delta.content) {
-      switch (part.type) {
-        case 'text':
-          parts.push({
-            type: 'text-delta',
-            id: chunk.id,
-            delta: part.text,
-          });
-          break;
-        case 'image':
-          // Images are currently not supported in stream parts
-          break;
-        case 'reasoning': {
-          const summaryText = part.summary.filter(
-            (summary) => summary.type === 'summary_text',
-          );
-          for (const summary of summaryText) {
-            parts.push({
-              type: 'reasoning-delta',
-              id: chunk.id,
-              delta: summary.text,
-            });
-          }
-          break;
-        }
-      }
-    }
+    parts.push(...mapContentItemsToStreamParts(choice.delta.content, chunk.id));
   }
 
   return parts;
@@ -69,29 +52,16 @@ export const convertFmapiResponseToMessagePart = (
   const choice = response.choices[0];
 
   if (typeof choice.message.content === 'string') {
-    const extracted = extractHostedFunctionCompletionsFromText(
-      choice.message.content,
-    );
+    const extracted = extractToolPartsFromText(choice.message.content);
     if (extracted) {
       for (const part of extracted) parts.push(part);
     } else {
       parts.push({ type: 'text', text: choice.message.content });
     }
   } else {
-    for (const part of choice.message.content ?? []) {
-      if (part.type === 'text') {
-        parts.push({ type: 'text', text: part.text });
-      } else if (part.type === 'image') {
-        // Images are currently not supported in content parts
-      } else if (part.type === 'reasoning') {
-        const summaryText = part.summary.filter(
-          (summary) => summary.type === 'summary_text',
-        );
-        for (const summary of summaryText) {
-          parts.push({ type: 'reasoning', text: summary.text });
-        }
-      }
-    }
+    parts.push(
+      ...mapContentItemsToProviderContent(choice.message.content ?? []),
+    );
   }
 
   return parts;
@@ -100,16 +70,13 @@ export const convertFmapiResponseToMessagePart = (
 const extractPartsFromTextCompletion = (
   text: string,
 ): (ToolCallOrResult | { type: 'text'; text: string })[] => {
-  const parts = text.split(
-    /(<uc_function_call>.*?<\/uc_function_call>|<uc_function_result>.*?<\/uc_function_result>|<tool_call>.*?<\/tool_call>|<tool_call_result>.*?<\/tool_call_result>)/,
-  );
+  const parts = text.split(tagSplitRegex);
 
   const accumulated: (ToolCallOrResult | { type: 'text'; text: string })[] = [];
   for (const segment of parts.filter((p) => p !== '')) {
-    const hostedFunctionCompletions =
-      extractHostedFunctionCompletionsFromText(segment);
-    if (hostedFunctionCompletions) {
-      accumulated.push(...hostedFunctionCompletions);
+    const toolParts = extractToolPartsFromText(segment);
+    if (toolParts) {
+      accumulated.push(...toolParts);
     } else {
       accumulated.push({ type: 'text', text: segment });
     }
@@ -117,75 +84,84 @@ const extractPartsFromTextCompletion = (
   return accumulated;
 };
 
-const extractHostedFunctionCompletionsFromText = (
-  text: string,
-): ToolCallOrResult[] | null => {
-  try {
-    const trimmed = text.trim();
-    const toolCall = getTaggedToolCall(trimmed);
-    if (toolCall) {
-      const parsed = JSON.parse(toolCall);
-      return [
-        {
-          type: 'tool-call',
-          input: parsed.arguments,
-          toolName: parsed.name,
-          toolCallId: parsed.id,
-          providerExecuted: true,
-        },
-      ];
-    }
-    const toolResult = getTaggedToolResult(trimmed);
-    if (toolResult) {
-      const parsed = JSON.parse(toolResult);
-      return [
-        {
-          type: 'tool-result',
-          result: parsed.content,
-          toolCallId: parsed.id,
-          toolName: DATABRICKS_TOOL_CALL_ID,
-        },
-      ];
-    }
-    return null;
-  } catch {
-    return null;
+const extractToolPartsFromText = (text: string): ToolCallOrResult[] | null => {
+  const trimmed = text.trim();
+  const call = parseTaggedToolCall(trimmed);
+  if (call) {
+    return [
+      {
+        type: 'tool-call',
+        input:
+          typeof call.arguments === 'string'
+            ? call.arguments
+            : JSON.stringify(call.arguments),
+        toolName: call.name,
+        toolCallId: call.id,
+        providerExecuted: true,
+      },
+    ];
   }
-};
-
-const getTaggedToolCall = (text: string) => {
-  // Legacy tool call tagging
-  if (
-    text.startsWith('<uc_function_call>') &&
-    text.endsWith('</uc_function_call>')
-  ) {
-    return text
-      .replace('<uc_function_call>', '')
-      .replace('</uc_function_call>', '');
-  }
-  // New tool call tagging
-  if (text.startsWith('<tool_call>') && text.endsWith('</tool_call>')) {
-    return text.replace('<tool_call>', '').replace('</tool_call>', '');
+  const result = parseTaggedToolResult(trimmed);
+  if (result) {
+    return [
+      {
+        type: 'tool-result',
+        result: result.content,
+        toolCallId: result.id,
+        toolName: DATABRICKS_TOOL_CALL_ID,
+      },
+    ];
   }
   return null;
 };
 
-const getTaggedToolResult = (text: string) => {
-  if (
-    text.startsWith('<uc_function_result>') &&
-    text.endsWith('</uc_function_result>')
-  ) {
-    return text
-      .replace('<uc_function_result>', '')
-      .replace('</uc_function_result>', '');
+const mapContentItemsToStreamParts = (
+  items: FmapiContentItem[],
+  id: string,
+): LanguageModelV2StreamPart[] => {
+  const parts: LanguageModelV2StreamPart[] = [];
+  for (const item of items) {
+    switch (item.type) {
+      case 'text':
+        parts.push({ type: 'text-delta', id, delta: item.text });
+        break;
+      case 'image':
+        // Images are currently not supported in stream parts
+        break;
+      case 'reasoning': {
+        for (const summary of item.summary.filter(
+          (s) => s.type === 'summary_text',
+        )) {
+          parts.push({ type: 'reasoning-delta', id, delta: summary.text });
+        }
+        break;
+      }
+    }
   }
-  if (
-    text.startsWith('<tool_call_result>') &&
-    text.endsWith('</tool_call_result>')
-  ) {
-    return text
-      .replace('<tool_call_result>', '')
-      .replace('</tool_call_result>', '');
+  return parts;
+};
+
+const mapContentItemsToProviderContent = (
+  items: FmapiContentItem[],
+): LanguageModelV2Content[] => {
+  const parts: LanguageModelV2Content[] = [];
+  for (const item of items) {
+    switch (item.type) {
+      case 'text':
+        parts.push({ type: 'text', text: item.text });
+        break;
+      case 'image':
+        // Images are currently not supported in content parts
+        break;
+      case 'reasoning': {
+        for (const summary of item.summary.filter(
+          (s) => s.type === 'summary_text',
+        )) {
+          parts.push({ type: 'reasoning', text: summary.text });
+        }
+        break;
+      }
+    }
   }
-  return null;
+  return parts;
 };
