@@ -8,7 +8,7 @@ import {
   getDatabricksUserIdentity,
   getCachedCliHost,
 } from '@/databricks/auth/databricks-auth';
-import { createDatabricksProvider } from './databricks-provider';
+import { createDatabricksProvider } from './databricks-provider/databricks-provider';
 
 // Use centralized authentication - only on server side
 async function getProviderToken(): Promise<string> {
