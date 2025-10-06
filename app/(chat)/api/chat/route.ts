@@ -28,7 +28,7 @@ import type { VisibilityType } from '@/components/visibility-selector';
 import {
   DATABRICKS_TOOL_CALL_ID,
   DATABRICKS_TOOL_DEFINITION,
-} from '@/databricks/stream-transformers/databricks-tool-calling';
+} from '@/databricks/providers/databricks-provider/stream-transformers/databricks-tool-calling';
 import { streamCache } from '@/lib/stream-cache';
 
 export const maxDuration = 60;

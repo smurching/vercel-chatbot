@@ -1,6 +1,6 @@
 import type { LanguageModelV2Middleware } from '@ai-sdk/provider';
-import { getDatabricksLanguageModelTransformStream } from '../../stream-transformers/databricks-stream-transformer';
-import { DATABRICKS_TOOL_CALL_ID } from '../../stream-transformers/databricks-tool-calling';
+import { getDatabricksLanguageModelTransformStream } from './stream-transformers/databricks-stream-transformer';
+import { DATABRICKS_TOOL_CALL_ID } from './stream-transformers/databricks-tool-calling';
 import { extractReasoningMiddleware } from 'ai';
 
 const databricksStreamMiddleware: LanguageModelV2Middleware = {

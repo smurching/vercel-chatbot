@@ -2,7 +2,7 @@ import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
 import type { DatabricksStreamPartTransformer } from './compose-stream-part-transformers';
 import { tool } from 'ai';
 import z from 'zod';
-import type { ChatMessage } from '../../lib/types';
+import type { ChatMessage } from '@/lib/types';
 
 export const DATABRICKS_TOOL_CALL_ID = 'databricks-tool-call';
 
