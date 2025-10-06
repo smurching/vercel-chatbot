@@ -75,3 +75,9 @@ export const fmapiResponseSchema = z.object({
     }),
   ),
 });
+
+// Exported types for type-only imports in other modules
+export type FmapiChunk = z.infer<typeof fmapiChunkSchema>;
+export type FmapiResponse = z.infer<typeof fmapiResponseSchema>;
+export type FmapiMessage = FmapiResponse['choices'][number]['message'];
+export type FmapiContentItem = z.infer<typeof contentItemSchema>;

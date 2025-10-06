@@ -2,9 +2,7 @@ import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
   LanguageModelV2FinishReason,
-  LanguageModelV2Message,
   LanguageModelV2StreamPart,
-  LanguageModelV2TextPart,
 } from '@ai-sdk/provider';
 import {
   type ParseResult,
@@ -20,7 +18,8 @@ import { fmapiChunkSchema, fmapiResponseSchema } from './fmapi-schema';
 import {
   convertFmapiChunkToMessagePart,
   convertFmapiResponseToMessagePart,
-} from './fmapi-message-part-transformers';
+} from './fmapi-to-content-part';
+import { convertPromptToFmapiMessages } from './fmapi-from-content-part';
 
 export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -157,23 +156,7 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
       }),
       headers: combineHeaders(config.headers(), options.headers),
       body: {
-        messages: options.prompt.map((message: LanguageModelV2Message) => {
-          return {
-            role: message.role,
-            /**
-             * TODO:
-             * - Handle other parts
-             * - Pass tagged tool calls back as text content
-             */
-            content:
-              typeof message.content === 'string'
-                ? message.content
-                : message.content
-                    .filter((part) => part.type === 'text')
-                    .map((part) => (part as LanguageModelV2TextPart).text)
-                    .join('\n'),
-          };
-        }),
+        messages: convertPromptToFmapiMessages(options.prompt),
         stream,
         model: modelId,
       },

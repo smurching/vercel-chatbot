@@ -2,9 +2,8 @@ import type {
   LanguageModelV2Content,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-import type { z } from 'zod/v4';
 import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/stream-transformers/databricks-tool-calling';
-import type { fmapiChunkSchema, fmapiResponseSchema } from './fmapi-schema';
+import type { FmapiChunk, FmapiResponse } from './fmapi-schema';
 
 type ToolCallOrResult = Extract<
   LanguageModelV2StreamPart,
@@ -12,7 +11,7 @@ type ToolCallOrResult = Extract<
 >;
 
 export const convertFmapiChunkToMessagePart = (
-  chunk: z.infer<typeof fmapiChunkSchema>,
+  chunk: FmapiChunk,
 ): LanguageModelV2StreamPart[] => {
   const parts: LanguageModelV2StreamPart[] = [];
   const choice = chunk.choices[0];
@@ -64,7 +63,7 @@ export const convertFmapiChunkToMessagePart = (
 };
 
 export const convertFmapiResponseToMessagePart = (
-  response: z.infer<typeof fmapiResponseSchema>,
+  response: FmapiResponse,
 ): LanguageModelV2Content[] => {
   const parts: LanguageModelV2Content[] = [];
   const choice = response.choices[0];
