@@ -3,7 +3,6 @@ import type {
   LanguageModelV2CallOptions,
   LanguageModelV2FinishReason,
   LanguageModelV2StreamPart,
-  LanguageModelV2TextPart,
 } from '@ai-sdk/provider';
 import {
   type ParseResult,
@@ -22,6 +21,7 @@ import {
 import {
   convertChatAgentChunkToMessagePart,
   convertChatAgentResponseToMessagePart,
+  convertLanguageModelV2PromptToChatAgentResponse,
 } from './chat-agent-message-part-transformers';
 
 export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
@@ -161,16 +161,9 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
       body: {
         model: modelId,
         stream,
-        messages: options.prompt.map((message) => ({
-          role: message.role,
-          content:
-            typeof message.content === 'string'
-              ? message.content
-              : message.content
-                  .filter((part) => part.type === 'text')
-                  .map((part) => (part as LanguageModelV2TextPart).text)
-                  .join('\n'),
-        })),
+        messages: convertLanguageModelV2PromptToChatAgentResponse(
+          options.prompt,
+        ),
       },
       url: config.url({
         path: '/completions',
