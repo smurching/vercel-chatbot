@@ -5,7 +5,7 @@ import { Actions, Action } from './elements/actions';
 import { memo } from 'react';
 import { toast } from 'sonner';
 import type { ChatMessage } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 function PureMessageActions({
   message,
@@ -78,23 +78,7 @@ function PureMessageActions({
           iconOnly={false}
         >
           <div className="flex items-center gap-1.5">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              className={cn('transition-transform', {
-                'rotate-180': showErrors,
-              })}
-            >
-              <path
-                d="M4 6L8 10L12 6"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            {showErrors ? <ChevronUp /> : <ChevronDown />}
             <span className="text-xs">
               {errorCount} {errorCount === 1 ? 'error' : 'errors'}
             </span>
