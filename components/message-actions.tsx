@@ -5,15 +5,22 @@ import { Actions, Action } from './elements/actions';
 import { memo } from 'react';
 import { toast } from 'sonner';
 import type { ChatMessage } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 function PureMessageActions({
   message,
   isLoading,
   setMode,
+  errorCount = 0,
+  showErrors = false,
+  onToggleErrors,
 }: {
   message: ChatMessage;
   isLoading: boolean;
   setMode?: (mode: 'view' | 'edit') => void;
+  errorCount?: number;
+  showErrors?: boolean;
+  onToggleErrors?: () => void;
 }) {
   const [_, copyToClipboard] = useCopyToClipboard();
 
@@ -59,9 +66,41 @@ function PureMessageActions({
 
   return (
     <Actions className="-ml-0.5">
-      <Action tooltip="Copy" onClick={handleCopy}>
-        <CopyIcon />
-      </Action>
+      {textFromParts && (
+        <Action tooltip="Copy" onClick={handleCopy}>
+          <CopyIcon />
+        </Action>
+      )}
+      {errorCount > 0 && onToggleErrors && (
+        <Action
+          tooltip={showErrors ? 'Hide errors' : 'Show errors'}
+          onClick={onToggleErrors}
+          iconOnly={false}
+        >
+          <div className="flex items-center gap-1.5">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              className={cn('transition-transform', {
+                'rotate-180': showErrors,
+              })}
+            >
+              <path
+                d="M4 6L8 10L12 6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="text-xs">
+              {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+            </span>
+          </div>
+        </Action>
+      )}
     </Actions>
   );
 }
@@ -70,6 +109,8 @@ export const MessageActions = memo(
   PureMessageActions,
   (prevProps, nextProps) => {
     if (prevProps.isLoading !== nextProps.isLoading) return false;
+    if (prevProps.errorCount !== nextProps.errorCount) return false;
+    if (prevProps.showErrors !== nextProps.showErrors) return false;
 
     return true;
   },

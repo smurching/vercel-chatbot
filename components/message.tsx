@@ -47,9 +47,16 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [showErrors, setShowErrors] = useState(false);
 
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === 'file',
+  );
+
+  // Extract error parts separately
+  const errorParts = React.useMemo(
+    () => message.parts.filter((part) => part.type === 'data-error'),
+    [message.parts],
   );
 
   useDataStream();
@@ -59,9 +66,20 @@ const PurePreviewMessage = ({
      * We segment message parts into segments that can be rendered as a single component.
      * Used to render citations as part of the associated text.
      */
-    () => createMessagePartSegments(message.parts),
+    () =>
+      createMessagePartSegments(
+        message.parts.filter((part) => part.type !== 'data-error'),
+      ),
     [message.parts],
   );
+
+  // Check if message only contains errors (no other content)
+  const hasOnlyErrors = React.useMemo(() => {
+    const nonErrorParts = message.parts.filter(
+      (part) => part.type !== 'data-error',
+    );
+    return errorParts.length > 0 && nonErrorParts.length === 0;
+  }, [message.parts, errorParts.length]);
 
   return (
     <motion.div
@@ -82,10 +100,11 @@ const PurePreviewMessage = ({
         )}
 
         <div
-          className={cn('flex w-full min-w-0 flex-col', {
+          className={cn('flex min-w-0 flex-col', {
             'gap-2 md:gap-4': message.parts?.some(
               (p) => p.type === 'text' && p.text?.trim(),
             ),
+            'w-full': message.role === 'assistant',
             'min-h-96': message.role === 'assistant' && requiresScrollPadding,
             'max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]':
               message.role === 'user' && mode !== 'edit',
@@ -178,11 +197,6 @@ const PurePreviewMessage = ({
               }
             }
 
-            // Support for error parts
-            if (part.type === 'data-error') {
-              return <MessageError key={key} error={part.data} />;
-            }
-
             // Generic tool call support for OpenAI-style tools
             if (part.type === 'tool-databricks-tool-call') {
               part;
@@ -236,13 +250,27 @@ const PurePreviewMessage = ({
             }
           })}
 
-          {!isReadonly && (
+          {!isReadonly && !hasOnlyErrors && (
             <MessageActions
               key={`action-${message.id}`}
               message={message}
               isLoading={isLoading}
               setMode={setMode}
+              errorCount={errorParts.length}
+              showErrors={showErrors}
+              onToggleErrors={() => setShowErrors(!showErrors)}
             />
+          )}
+
+          {errorParts.length > 0 && (hasOnlyErrors || showErrors) && (
+            <div className="flex flex-col gap-2">
+              {errorParts.map((part, index) => (
+                <MessageError
+                  key={`error-${message.id}-${index}`}
+                  error={part.data}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
