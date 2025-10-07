@@ -19,15 +19,7 @@ export type ChatTools = {
 };
 
 export type CustomUIDataTypes = {
-  textDelta: string;
-  imageDelta: string;
-  sheetDelta: string;
-  codeDelta: string;
-  appendMessage: string;
-  id: string;
-  title: string;
-  clear: null;
-  finish: null;
+  error: string;
   usage: LanguageModelUsage;
 };
 
