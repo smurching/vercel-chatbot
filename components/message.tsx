@@ -27,6 +27,7 @@ import {
   joinMessagePartSegments,
 } from './databricks-message-part-transformers';
 import { components } from './elements/streamdown-components/components';
+import { MessageError } from './message-error';
 
 const PurePreviewMessage = ({
   chatId,
@@ -81,17 +82,11 @@ const PurePreviewMessage = ({
         )}
 
         <div
-          className={cn('flex min-w-0 flex-col', {
+          className={cn('flex w-full min-w-0 flex-col', {
             'gap-2 md:gap-4': message.parts?.some(
               (p) => p.type === 'text' && p.text?.trim(),
             ),
             'min-h-96': message.role === 'assistant' && requiresScrollPadding,
-            'w-full':
-              (message.role === 'assistant' &&
-                message.parts?.some(
-                  (p) => p.type === 'text' && p.text?.trim(),
-                )) ||
-              mode === 'edit',
             'max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]':
               message.role === 'user' && mode !== 'edit',
           })}
@@ -181,6 +176,11 @@ const PurePreviewMessage = ({
                   </div>
                 );
               }
+            }
+
+            // Support for error parts
+            if (part.type === 'data-error') {
+              return <MessageError key={key} error={part.data} />;
             }
 
             // Generic tool call support for OpenAI-style tools
