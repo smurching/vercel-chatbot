@@ -18,7 +18,8 @@ export const applyDeltaBoundaryTransform: DatabricksStreamPartTransformer<
     const lastId = (last as any)?.id as string | undefined;
 
     const incomingMatchesLast =
-      Boolean((lastDeltaType === incomingDeltaType) !== null) && // Both are deltas and have the same type
+      Boolean(lastDeltaType && incomingDeltaType) &&
+      Boolean(lastDeltaType === incomingDeltaType) && // Both are deltas and have the same type
       Boolean(incomingId && lastId && incomingId === lastId); // Both have the same id
 
     if (incomingMatchesLast) {
@@ -34,6 +35,7 @@ export const applyDeltaBoundaryTransform: DatabricksStreamPartTransformer<
         { type: `${getDeltaType(incoming)}-start`, id: incoming.id },
         incoming,
       );
+      continue;
     }
     out.push(incoming);
     continue;
