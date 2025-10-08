@@ -43,6 +43,6 @@ export const myProvider = isTestEnvironment
         if (!cachedServerProvider) {
           cachedServerProvider = await getServerProvider();
         }
-        return await cachedServerProvider.langeuageModel(id, request);
+        return await cachedServerProvider.languageModel(id, request);
       },
     };
