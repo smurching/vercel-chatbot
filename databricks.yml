@@ -25,7 +25,7 @@ resources:
 
   apps:
     databricks_chatbot:
-      name: db-chatbot-smurching-${bundle.target}
+      name: db-chatbot-${bundle.target}
       description: "Chatbot UI for Agent Bricks and custom code agents"
       source_code_path: .
       resources:
