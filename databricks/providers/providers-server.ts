@@ -23,14 +23,24 @@ import {
 } from '@/databricks/auth/databricks-auth';
 
 // Use centralized authentication - only on server side
-async function getProviderToken(): Promise<string> {
-  // First, check if we have a PAT token
+async function getProviderToken(request?: Request): Promise<string> {
+  // First priority: use the calling user's access token from Databricks Apps
+  if (request) {
+    const userToken = request.headers.get('x-forwarded-access-token');
+    if (userToken) {
+      console.log('Using user access token from x-forwarded-access-token header');
+      return userToken;
+    }
+  }
+
+  // Second priority: check if we have a PAT token
   if (process.env.DATABRICKS_TOKEN) {
     console.log('Using PAT token from DATABRICKS_TOKEN env var');
     return process.env.DATABRICKS_TOKEN;
   }
 
-  // Otherwise, use centralized authentication module
+  // Otherwise, use centralized authentication module (app identity)
+  console.log('Using app identity token from OAuth/CLI');
   return getDatabricksToken();
 }
 
@@ -163,30 +173,39 @@ let oauthProviderCache: ReturnType<typeof createOpenAI> | null = null;
 let oauthProviderCacheTime = 0;
 const PROVIDER_CACHE_DURATION = 5 * 60 * 1000; // Cache provider for 5 minutes
 
-// Helper function to get or create the Databricks provider with OAuth
-async function getOrCreateDatabricksProvider(): Promise<
-  ReturnType<typeof createOpenAI>
-> {
-  // Check if we have a cached provider that's still fresh
+// Helper function to get or create the Databricks provider
+async function getOrCreateDatabricksProvider(
+  request?: Request,
+): Promise<ReturnType<typeof createOpenAI>> {
+  // Don't cache when using user tokens - each user needs their own provider
+  const userToken = request?.headers.get('x-forwarded-access-token');
+
+  // Check if we have a cached provider that's still fresh (only for app tokens)
   if (
+    !userToken &&
     oauthProviderCache &&
     Date.now() - oauthProviderCacheTime < PROVIDER_CACHE_DURATION
   ) {
-    console.log('Using cached OAuth provider');
+    console.log('Using cached app identity provider');
     return oauthProviderCache;
   }
 
-  console.log('Creating new OAuth provider');
-  const token = await getProviderToken();
+  if (userToken) {
+    console.log('Creating new provider with user identity token');
+  } else {
+    console.log('Creating new provider with app identity token');
+  }
+
+  const token = await getProviderToken(request);
   const hostname = await getWorkspaceHostname();
 
-  // Create provider with fetch that always uses fresh token
+  // Create provider with fetch that always uses the appropriate token
   const provider = createOpenAI({
     baseURL: `${hostname}/serving-endpoints`,
     apiKey: token,
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       // Always get fresh token for each request (will use cache if valid)
-      const currentToken = await getProviderToken();
+      const currentToken = await getProviderToken(request);
       const headers = new Headers(init?.headers);
       headers.set('Authorization', `Bearer ${currentToken}`);
 
@@ -197,8 +216,12 @@ async function getOrCreateDatabricksProvider(): Promise<
     },
   });
 
-  oauthProviderCache = provider;
-  oauthProviderCacheTime = Date.now();
+  // Only cache provider when using app token (not user token)
+  if (!userToken) {
+    oauthProviderCache = provider;
+    oauthProviderCacheTime = Date.now();
+  }
+
   return provider;
 }
 
@@ -307,7 +330,10 @@ const endpointDetailsCache = new Map<
 const ENDPOINT_DETAILS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Get the task type of the serving endpoint
-const getEndpointDetails = async (servingEndpoint: string) => {
+const getEndpointDetails = async (
+  servingEndpoint: string,
+  request?: Request,
+) => {
   const cached = endpointDetailsCache.get(servingEndpoint);
   if (
     cached &&
@@ -317,7 +343,7 @@ const getEndpointDetails = async (servingEndpoint: string) => {
   }
 
   // Always get fresh token for each request (will use cache if valid)
-  const currentToken = await getProviderToken();
+  const currentToken = await getProviderToken(request);
   const hostname = await getWorkspaceHostname();
   const headers = new Headers();
   headers.set('Authorization', `Bearer ${currentToken}`);
@@ -340,26 +366,36 @@ const getEndpointDetails = async (servingEndpoint: string) => {
 
 // Create a smart provider wrapper that handles OAuth initialization
 interface SmartProvider {
-  languageModel(id: string): Promise<any> | any;
+  languageModel(id: string, request?: Request): Promise<any> | any;
 }
 
 class OAuthAwareProvider implements SmartProvider {
   private modelCache = new Map<string, { model: any; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  async languageModel(id: string): Promise<any> {
-    const endpointDetails = await getEndpointDetails(servingEndpoint);
-    // Check cache first
-    const cached = this.modelCache.get(id);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      console.log(`Using cached model for ${id}`);
-      return cached.model;
+  async languageModel(id: string, request?: Request): Promise<any> {
+    const endpointDetails = await getEndpointDetails(servingEndpoint, request);
+
+    // Don't cache models when using user tokens - each user needs fresh models
+    const userToken = request?.headers.get('x-forwarded-access-token');
+
+    // Check cache first (only for app identity)
+    if (!userToken) {
+      const cached = this.modelCache.get(id);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        console.log(`Using cached model for ${id} with app identity`);
+        return cached.model;
+      }
     }
 
-    console.log(`Creating fresh model for ${id}`);
+    if (userToken) {
+      console.log(`Creating fresh model for ${id} with user identity`);
+    } else {
+      console.log(`Creating fresh model for ${id} with app identity`);
+    }
 
-    // Get the OAuth provider
-    const provider = await getOrCreateDatabricksProvider();
+    // Get the provider (with user or app token)
+    const provider = await getOrCreateDatabricksProvider(request);
 
     let baseModel: LanguageModelV2;
     if (id === 'title-model' || id === 'artifact-model') {
@@ -388,8 +424,11 @@ class OAuthAwareProvider implements SmartProvider {
       finalModel = baseModel;
     }
 
-    // Cache the model
-    this.modelCache.set(id, { model: finalModel, timestamp: Date.now() });
+    // Only cache model when using app token (not user token)
+    if (!userToken) {
+      this.modelCache.set(id, { model: finalModel, timestamp: Date.now() });
+    }
+
     return finalModel;
   }
 }

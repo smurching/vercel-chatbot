@@ -37,12 +37,12 @@ export const myProvider = isTestEnvironment
       });
     })()
   : {
-      // Server-side: use smart provider that handles OAuth
-      async languageModel(id: string) {
+      // Server-side: use smart provider that handles OAuth and user identity
+      async languageModel(id: string, request?: Request) {
         // Only call getServerProvider when actually needed (not during module init)
         if (!cachedServerProvider) {
           cachedServerProvider = await getServerProvider();
         }
-        return await cachedServerProvider.languageModel(id);
+        return await cachedServerProvider.languageModel(id, request);
       },
     };
