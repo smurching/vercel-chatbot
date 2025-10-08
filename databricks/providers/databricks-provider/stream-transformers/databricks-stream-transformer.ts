@@ -1,23 +1,13 @@
 import type { LanguageModelV2StreamPart } from '@ai-sdk/provider';
 
 import { composeDatabricksStreamPartTransformers } from './compose-stream-part-transformers';
-import { applyDatabricksRawChunkStreamPartTransform } from './databricks-raw-chunk-transformer';
-import { applyDatabricksTextPartTransform } from './databricks-text-parts';
-import { applyDatabricksToolCallStreamPartTransform } from './databricks-tool-calling';
-import { applyDatabricksReasoningDeltaPartTransform } from './databricks-reasoning-delta-transformer';
+import { applyDeltaBoundaryTransform } from './databricks-delta-boundary';
 
 export const getDatabricksLanguageModelTransformStream = () => {
   let lastChunk = null as LanguageModelV2StreamPart | null;
   const deltaEndIds = new Set<string>();
   const transformerStreamParts = composeDatabricksStreamPartTransformers(
-    // Filter out raw chunks except the ones we want to keep
-    applyDatabricksRawChunkStreamPartTransform,
-    // Add text-start and text-end chunks
-    applyDatabricksTextPartTransform,
-    // Add reasoning-start and reasoning-end chunks
-    applyDatabricksReasoningDeltaPartTransform,
-    // Transform tool call stream parts
-    applyDatabricksToolCallStreamPartTransform,
+    applyDeltaBoundaryTransform,
   );
   return new TransformStream<
     LanguageModelV2StreamPart,
@@ -25,6 +15,7 @@ export const getDatabricksLanguageModelTransformStream = () => {
   >({
     transform(chunk, controller) {
       try {
+        console.log('[RECEIVED CHUNK]', chunk);
         // Apply transformation functions to the incoming chunks
         const { out } = transformerStreamParts([chunk], lastChunk);
 
@@ -32,11 +23,11 @@ export const getDatabricksLanguageModelTransformStream = () => {
         out.forEach((transformedChunk) => {
           if (
             transformedChunk.type === 'text-delta' ||
+            transformedChunk.type === 'text-start' ||
+            transformedChunk.type === 'text-end' ||
             transformedChunk.type === 'reasoning-delta' ||
             transformedChunk.type === 'reasoning-start' ||
-            transformedChunk.type === 'reasoning-end' ||
-            transformedChunk.type === 'text-start' ||
-            transformedChunk.type === 'text-end'
+            transformedChunk.type === 'reasoning-end'
           ) {
             if (deltaEndIds.has(transformedChunk.id)) {
               // If we already have a delta end for this id, don't write it again

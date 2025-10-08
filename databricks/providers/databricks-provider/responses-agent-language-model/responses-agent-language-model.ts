@@ -1,9 +1,29 @@
-import { createOpenAI } from '@ai-sdk/openai';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
+  LanguageModelV2FinishReason,
+  LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
+import {
+  type ParseResult,
+  combineHeaders,
+  createEventSourceResponseHandler,
+  createJsonErrorResponseHandler,
+  createJsonResponseHandler,
+  postJsonToApi,
+} from '@ai-sdk/provider-utils';
+import { z } from 'zod/v4';
 import type { DatabricksLanguageModelConfig } from '../databricks-language-model';
+import {
+  responsesAgentResponseSchema,
+  looseResponseAgentChunkSchema,
+  type responsesAgentChunkSchema,
+} from './responses-agent-schema';
+import {
+  convertResponsesAgentChunkToMessagePart,
+  convertResponsesAgentResponseToMessagePart,
+} from './responses-convert-to-message-parts';
+import { convertToResponsesInput } from './responses-convert-to-input';
 
 export class DatabricksResponsesAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -11,17 +31,10 @@ export class DatabricksResponsesAgentLanguageModel implements LanguageModelV2 {
   readonly modelId: string;
 
   private readonly config: DatabricksLanguageModelConfig;
-  private readonly openaiResponsesLanguageModel: LanguageModelV2;
 
   constructor(modelId: string, config: DatabricksLanguageModelConfig) {
     this.modelId = modelId;
     this.config = config;
-    const openai = createOpenAI({
-      baseURL: config.url({ path: '' }),
-      fetch: config.fetch,
-      apiKey: '__NOT_USED__',
-    });
-    this.openaiResponsesLanguageModel = openai.responses(modelId);
   }
 
   get provider(): string {
@@ -30,11 +43,138 @@ export class DatabricksResponsesAgentLanguageModel implements LanguageModelV2 {
 
   readonly supportedUrls: Record<string, RegExp[]> = {};
 
-  doGenerate(options: LanguageModelV2CallOptions) {
-    return this.openaiResponsesLanguageModel.doGenerate(options);
+  async doGenerate(
+    options: Parameters<LanguageModelV2['doGenerate']>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
+    const networkArgs = await this.getArgs({
+      config: this.config,
+      options,
+      stream: false,
+      modelId: this.modelId,
+    });
+
+    const { responseHeaders, value: response } = await postJsonToApi({
+      ...networkArgs,
+      successfulResponseHandler: createJsonResponseHandler(
+        responsesAgentResponseSchema,
+      ),
+      failedResponseHandler: createJsonErrorResponseHandler({
+        errorSchema: z.any(), // TODO: Implement error schema
+        errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
+        isRetryable: () => false,
+      }),
+    });
+
+    return {
+      content: convertResponsesAgentResponseToMessagePart(response),
+      finishReason: 'stop',
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
+      warnings: [],
+    };
   }
 
-  doStream(options: LanguageModelV2CallOptions) {
-    return this.openaiResponsesLanguageModel.doStream(options);
+  async doStream(
+    options: Parameters<LanguageModelV2['doStream']>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
+    const networkArgs = await this.getArgs({
+      config: this.config,
+      options,
+      stream: true,
+      modelId: this.modelId,
+    });
+
+    const { responseHeaders, value: response } = await postJsonToApi({
+      ...networkArgs,
+      failedResponseHandler: createJsonErrorResponseHandler({
+        errorSchema: z.any(), // TODO: Implement error schema
+        errorToMessage: (error) => JSON.stringify(error), // TODO: Implement error to message
+        isRetryable: () => false,
+      }),
+      successfulResponseHandler: createEventSourceResponseHandler(
+        looseResponseAgentChunkSchema,
+      ),
+      abortSignal: options.abortSignal,
+    });
+
+    let finishReason: LanguageModelV2FinishReason = 'unknown';
+
+    return {
+      stream: response.pipeThrough(
+        new TransformStream<
+          ParseResult<z.infer<typeof responsesAgentChunkSchema>>,
+          LanguageModelV2StreamPart
+        >({
+          start(controller) {
+            controller.enqueue({ type: 'stream-start', warnings: [] });
+          },
+
+          transform(chunk, controller) {
+            console.log('chunk', chunk);
+            if (options.includeRawChunks) {
+              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+            }
+
+            // handle failed chunk parsing / validation:
+            if (!chunk.success) {
+              finishReason = 'error';
+              controller.enqueue({ type: 'error', error: chunk.error });
+              return;
+            }
+
+            const parts = convertResponsesAgentChunkToMessagePart(chunk.value);
+            for (const part of parts) {
+              controller.enqueue(part);
+            }
+          },
+
+          flush(controller) {
+            controller.enqueue({
+              type: 'finish',
+              finishReason,
+              usage: {
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+              },
+            });
+          },
+        }),
+      ),
+      request: { body: networkArgs.body },
+      response: { headers: responseHeaders },
+    };
+  }
+
+  private async getArgs({
+    config,
+    options,
+    stream,
+    modelId,
+  }: {
+    options: LanguageModelV2CallOptions;
+    config: DatabricksLanguageModelConfig;
+    stream: boolean;
+    modelId: string;
+  }) {
+    const { input } = await convertToResponsesInput({
+      prompt: options.prompt,
+      systemMessageMode: 'system',
+    });
+    return {
+      url: config.url({
+        path: '/responses',
+      }),
+      headers: combineHeaders(config.headers(), options.headers),
+      body: {
+        model: modelId,
+        input,
+        stream,
+      },
+      fetch: config.fetch,
+    };
   }
 }

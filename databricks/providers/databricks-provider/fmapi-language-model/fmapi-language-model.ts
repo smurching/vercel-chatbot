@@ -18,8 +18,8 @@ import { fmapiChunkSchema, fmapiResponseSchema } from './fmapi-schema';
 import {
   convertFmapiChunkToMessagePart,
   convertFmapiResponseToMessagePart,
-} from './fmapi-to-content-part';
-import { convertPromptToFmapiMessages } from './fmapi-from-content-part';
+} from './fmapi-convert-to-message-parts';
+import { convertPromptToFmapiMessages } from './fmapi-convert-to-input';
 
 export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';

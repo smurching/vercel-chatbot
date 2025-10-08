@@ -2,7 +2,7 @@ import type {
   LanguageModelV2Content,
   LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
-import { DATABRICKS_TOOL_CALL_ID } from '../stream-transformers/databricks-tool-calling';
+import { DATABRICKS_TOOL_CALL_ID } from '../databricks-tool-calling';
 import type {
   chatAgentChunkSchema,
   chatAgentResponseSchema,
