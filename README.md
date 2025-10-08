@@ -48,7 +48,7 @@ This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.
    databricks bundle validate
    ```
 
-4. **Deploy the bundle** (creates Lakebase instance, database catalog, and app):
+4. **Deploy the bundle** (creates Lakebase instance, database catalog, and app). The first deployment may take several minutes for provisioning resources, but subsequent deployemnts are fast:
    ```bash
    databricks bundle deploy
    ```
@@ -57,12 +57,12 @@ This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.
    - **Lakebase database instance** for persisting chat history
    - **App resource** ready to start
 
-5. **Start the app**:
+6. **Start the app**:
    ```bash
    databricks bundle run databricks_chatbot
    ```
 
-6. **View deployment summary** (useful for debugging deployment issues):
+7. **View deployment summary** (useful for debugging deployment issues):
    ```bash
    databricks bundle summary
    ```
