@@ -82,6 +82,7 @@ export async function POST(request: Request) {
     if (!chat) {
       const title = await generateTitleFromUserMessage({
         message,
+        request,
       });
 
       await saveChat({
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     let finalUsage: LanguageModelUsage | undefined;
     const streamId = generateUUID();
 
-    const model = await myProvider.languageModel(selectedChatModel);
+    const model = await myProvider.languageModel(selectedChatModel, request);
     const result = streamText({
       model,
       messages: convertToModelMessages(uiMessages),
