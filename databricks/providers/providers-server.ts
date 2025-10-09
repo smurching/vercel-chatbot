@@ -9,6 +9,7 @@ import {
   getCachedCliHost,
 } from '@/databricks/auth/databricks-auth';
 import { createDatabricksProvider } from './databricks-provider';
+import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 
 // Use centralized authentication - only on server side
 async function getProviderToken(): Promise<string> {
@@ -275,9 +276,14 @@ export class OAuthAwareProvider implements SmartProvider {
       }
     })();
 
+    const wrappedModel = wrapLanguageModel({
+      model,
+      middleware: [extractReasoningMiddleware({ tagName: 'think' })],
+    });
+
     // Cache the model
-    this.modelCache.set(id, { model: model, timestamp: Date.now() });
-    return model;
+    this.modelCache.set(id, { model: wrappedModel, timestamp: Date.now() });
+    return wrappedModel;
   }
 }
 
