@@ -41,14 +41,19 @@ but has some [known limitations](#known-limitations) for other use cases. Work i
 
 This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.com/aws/en/dev-tools/bundles/apps-tutorial) configuration that simplifies deployment by automatically creating and managing all required resources.
 
-1. **Databricks authentication**: Ensure auth is configured as described in [Prerequisites](#prerequisites).
-2. **Configure the app to use your serving endpoint**: In `databricks.yml`, set the default value of `serving_endpoint_name` to the name of the custom code agent or Agent Bricks endpoint to chat with.
+1. **Clone the repo**:
+   ```bash
+   git clone https://github.com/databricks/app-templates
+   cd e2e-chatbot-app-next
+   ```
+2. **Databricks authentication**: Ensure auth is configured as described in [Prerequisites](#prerequisites).
+2. **Specify serving endpoint**: In `databricks.yml`, set the default value of `serving_endpoint_name` to the name of the custom code agent or Agent Bricks endpoint to chat with.
 3. **Validate the bundle configuration**:
    ```bash
    databricks bundle validate
    ```
 
-4. **Deploy the bundle** (creates Lakebase instance, database catalog, and app):
+4. **Deploy the bundle** (creates Lakebase instance, database catalog, and app). The first deployment may take several minutes for provisioning resources, but subsequent deployments are fast:
    ```bash
    databricks bundle deploy
    ```
@@ -116,6 +121,7 @@ so that both you and your app service principal can connect to the database, wit
 * No support for image or other multi-modal inputs
 * The most common and officially recommended authentication methods for Databricks are supported: Databricks CLI auth for local development, and Databricks service principal auth for deployed apps. Other authentication mechanisms (PAT, Azure MSI, etc) are not currently supported.
 * We create one database per app, because the app code targets a fixed `ai_chatbot` schema within the database instance. To host multiple apps out of the same instance, you can:
-    * Update references to `ai_chatbot` in the codebase to your new desired schema name
+    * Update the database instance name in `databricks.yml`
+    * Update references to `ai_chatbot` in the codebase to your new desired schema name within the existing database instance
     * Run `npm run db:generate` to regenerate database migrations
     * Deploy your app
