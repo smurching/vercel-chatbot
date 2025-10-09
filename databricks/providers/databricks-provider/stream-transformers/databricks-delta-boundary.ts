@@ -17,19 +17,25 @@ export const applyDeltaBoundaryTransform: DatabricksStreamPartTransformer<
     const incomingId = (incoming as any)?.id as string | undefined;
     const lastId = (last as any)?.id as string | undefined;
 
+    // When continuous deltas are detected, we don't need to inject start/end deltas
     const incomingMatchesLast =
+      // Only treat as a continuation when both are actual *-delta parts
+      Boolean(isDeltaPart(last) && isDeltaPart(incoming)) &&
       Boolean(lastDeltaType && incomingDeltaType) &&
-      Boolean(lastDeltaType === incomingDeltaType) && // Both are deltas and have the same type
-      Boolean(incomingId && lastId && incomingId === lastId); // Both have the same id
+      Boolean(lastDeltaType === incomingDeltaType) && // Same delta group (text/reasoning)
+      Boolean(incomingId && lastId && incomingId === lastId); // Same id
 
     if (incomingMatchesLast) {
       out.push(incoming);
       continue;
     }
 
+    // If there's no delta continuation, and the last part is a delta, we need to end it
     if (isDeltaPart(last)) {
       out.push({ type: `${getDeltaType(last)}-end`, id: last.id });
     }
+
+    // If there's a new delta, we need to start it
     if (isDeltaPart(incoming)) {
       out.push(
         { type: `${getDeltaType(incoming)}-start`, id: incoming.id },
@@ -37,6 +43,8 @@ export const applyDeltaBoundaryTransform: DatabricksStreamPartTransformer<
       );
       continue;
     }
+
+    // Otherwise, just push the incoming part
     out.push(incoming);
     continue;
   }

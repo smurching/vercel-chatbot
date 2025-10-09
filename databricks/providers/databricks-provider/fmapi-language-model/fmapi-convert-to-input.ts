@@ -7,8 +7,8 @@ import { serializeToolCall, serializeToolResult } from './fmapi-tags';
 
 export const convertPromptToFmapiMessages = (
   prompt: LanguageModelV2Message[],
-): Array<FmapiMessage> => {
-  return prompt.map((message) => {
+): { messages: Array<FmapiMessage> } => {
+  const messages: Array<FmapiMessage> = prompt.map((message) => {
     const role = message.role === 'system' ? 'user' : message.role;
 
     const contentItems: Array<
@@ -98,6 +98,7 @@ export const convertPromptToFmapiMessages = (
     const content = contentItems.length === 0 ? '' : contentItems;
     return { role: role as 'assistant' | 'user' | 'tool', content };
   });
+  return { messages };
 };
 
 const toHttpUrlString = (data: URL | string | Uint8Array): string | null => {

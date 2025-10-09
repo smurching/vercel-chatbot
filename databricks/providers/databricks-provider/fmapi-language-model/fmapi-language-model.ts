@@ -156,7 +156,7 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
       }),
       headers: combineHeaders(config.headers(), options.headers),
       body: {
-        messages: convertPromptToFmapiMessages(options.prompt),
+        messages: convertPromptToFmapiMessages(options.prompt).messages,
         stream,
         model: modelId,
       },

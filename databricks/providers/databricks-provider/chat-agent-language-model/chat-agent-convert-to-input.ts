@@ -4,7 +4,7 @@ import type { chatAgentResponseSchema } from './chat-agent-schema';
 
 export const convertLanguageModelV2PromptToChatAgentResponse = (
   prompt: LanguageModelV2Prompt,
-): z.infer<typeof chatAgentResponseSchema> => {
+): z.infer<typeof chatAgentResponseSchema>['messages'] => {
   const messages: z.infer<typeof chatAgentResponseSchema>['messages'] = [];
 
   let messageIndex = 0;
@@ -133,8 +133,5 @@ export const convertLanguageModelV2PromptToChatAgentResponse = (
     }
   }
 
-  return {
-    id: 'converted-from-prompt',
-    messages,
-  };
+  return messages;
 };
