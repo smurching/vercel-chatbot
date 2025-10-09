@@ -203,7 +203,7 @@ const PurePreviewMessage = ({
               const { toolCallId, input, state, errorText, output } = part;
               const toolName =
                 'callProviderMetadata' in part
-                  ? part.callProviderMetadata?.originalPart?.toolName?.toString()
+                  ? part.callProviderMetadata?.databricks?.toolName?.toString()
                   : undefined;
 
               return (

@@ -6,6 +6,7 @@
 import 'server-only';
 import { customProvider } from 'ai';
 import { isTestEnvironment } from '../constants';
+import type { OAuthAwareProvider } from '../../databricks/providers/providers-server';
 
 // For server-side usage, get the authenticated provider
 async function getServerProvider() {
@@ -16,7 +17,7 @@ async function getServerProvider() {
 }
 
 // Cache for server provider to avoid recreating it
-let cachedServerProvider: any = null;
+let cachedServerProvider: OAuthAwareProvider | null = null;
 
 // Export the main provider for server-side usage
 export const myProvider = isTestEnvironment
