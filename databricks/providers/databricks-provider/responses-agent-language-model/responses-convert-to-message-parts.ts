@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   LanguageModelV2Content,
   LanguageModelV2StreamPart,
@@ -8,7 +9,6 @@ import type {
   responsesAgentResponseSchema,
 } from './responses-agent-schema';
 import { DATABRICKS_TOOL_CALL_ID } from '../databricks-tool-calling';
-import { generateId } from 'ai';
 
 export const convertResponsesAgentChunkToMessagePart = (
   chunk: z.infer<typeof responsesAgentChunkSchema>,
@@ -115,7 +115,7 @@ export const convertResponsesAgentChunkToMessagePart = (
         type: 'source',
         url: chunk.annotation.url,
         title: chunk.annotation.title,
-        id: generateId(),
+        id: randomUUID(),
         sourceType: 'url',
       });
       break;
