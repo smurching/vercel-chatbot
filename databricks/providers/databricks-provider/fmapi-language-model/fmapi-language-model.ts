@@ -20,6 +20,7 @@ import {
   convertFmapiResponseToMessagePart,
 } from './fmapi-convert-to-message-parts';
 import { convertPromptToFmapiMessages } from './fmapi-convert-to-input';
+import { getDatabricksLanguageModelTransformStream } from '../stream-transformers/databricks-stream-transformer';
 
 export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -96,44 +97,46 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
     let finishReason: LanguageModelV2FinishReason = 'unknown';
 
     return {
-      stream: response.pipeThrough(
-        new TransformStream<
-          ParseResult<z.infer<typeof fmapiChunkSchema>>,
-          LanguageModelV2StreamPart
-        >({
-          start(controller) {
-            controller.enqueue({ type: 'stream-start', warnings: [] });
-          },
+      stream: response
+        .pipeThrough(
+          new TransformStream<
+            ParseResult<z.infer<typeof fmapiChunkSchema>>,
+            LanguageModelV2StreamPart
+          >({
+            start(controller) {
+              controller.enqueue({ type: 'stream-start', warnings: [] });
+            },
 
-          transform(chunk, controller) {
-            if (options.includeRawChunks) {
-              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
-            }
+            transform(chunk, controller) {
+              if (options.includeRawChunks) {
+                controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+              }
 
-            // // handle failed chunk parsing / validation:
-            if (!chunk.success) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
-              return;
-            }
+              // // handle failed chunk parsing / validation:
+              if (!chunk.success) {
+                finishReason = 'error';
+                controller.enqueue({ type: 'error', error: chunk.error });
+                return;
+              }
 
-            const parts = convertFmapiChunkToMessagePart(chunk.value);
-            for (const part of parts) controller.enqueue(part);
-          },
+              const parts = convertFmapiChunkToMessagePart(chunk.value);
+              for (const part of parts) controller.enqueue(part);
+            },
 
-          flush(controller) {
-            controller.enqueue({
-              type: 'finish',
-              finishReason,
-              usage: {
-                inputTokens: 0,
-                outputTokens: 0,
-                totalTokens: 0,
-              },
-            });
-          },
-        }),
-      ),
+            flush(controller) {
+              controller.enqueue({
+                type: 'finish',
+                finishReason,
+                usage: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  totalTokens: 0,
+                },
+              });
+            },
+          }),
+        )
+        .pipeThrough(getDatabricksLanguageModelTransformStream()),
       request: { body: networkArgs.body },
       response: { headers: responseHeaders },
     };

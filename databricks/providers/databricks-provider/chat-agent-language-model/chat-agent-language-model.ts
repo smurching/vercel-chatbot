@@ -23,6 +23,7 @@ import {
   convertChatAgentResponseToMessagePart,
 } from './chat-agent-convert-to-message-parts';
 import { convertLanguageModelV2PromptToChatAgentResponse } from './chat-agent-convert-to-input';
+import { getDatabricksLanguageModelTransformStream } from '../stream-transformers/databricks-stream-transformer';
 
 export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
@@ -100,47 +101,52 @@ export class DatabricksChatAgentLanguageModel implements LanguageModelV2 {
     let finishReason: LanguageModelV2FinishReason = 'unknown';
 
     return {
-      stream: response.pipeThrough(
-        new TransformStream<
-          ParseResult<z.infer<typeof chatAgentChunkSchema>>,
-          LanguageModelV2StreamPart
-        >({
-          start(controller) {
-            controller.enqueue({ type: 'stream-start', warnings: [] });
-          },
+      stream: response
+        .pipeThrough(
+          new TransformStream<
+            ParseResult<z.infer<typeof chatAgentChunkSchema>>,
+            LanguageModelV2StreamPart
+          >({
+            start(controller) {
+              controller.enqueue({ type: 'stream-start', warnings: [] });
+            },
 
-          transform(chunk, controller) {
-            console.log('[DatabricksChatAgentLanguageModel] transform', chunk);
-            if (options.includeRawChunks) {
-              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
-            }
+            transform(chunk, controller) {
+              console.log(
+                '[DatabricksChatAgentLanguageModel] transform',
+                chunk,
+              );
+              if (options.includeRawChunks) {
+                controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+              }
 
-            // // handle failed chunk parsing / validation:
-            if (!chunk.success) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
-              return;
-            }
+              // // handle failed chunk parsing / validation:
+              if (!chunk.success) {
+                finishReason = 'error';
+                controller.enqueue({ type: 'error', error: chunk.error });
+                return;
+              }
 
-            const parts = convertChatAgentChunkToMessagePart(chunk.value);
-            for (const part of parts) {
-              controller.enqueue(part);
-            }
-          },
+              const parts = convertChatAgentChunkToMessagePart(chunk.value);
+              for (const part of parts) {
+                controller.enqueue(part);
+              }
+            },
 
-          flush(controller) {
-            controller.enqueue({
-              type: 'finish',
-              finishReason,
-              usage: {
-                inputTokens: 0,
-                outputTokens: 0,
-                totalTokens: 0,
-              },
-            });
-          },
-        }),
-      ),
+            flush(controller) {
+              controller.enqueue({
+                type: 'finish',
+                finishReason,
+                usage: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  totalTokens: 0,
+                },
+              });
+            },
+          }),
+        )
+        .pipeThrough(getDatabricksLanguageModelTransformStream()),
       request: { body: networkArgs.body },
       response: { headers: responseHeaders },
     };
