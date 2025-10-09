@@ -28,6 +28,7 @@ import {
 } from './databricks-message-part-transformers';
 import { components } from './elements/streamdown-components/components';
 import { MessageError } from './message-error';
+import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/providers/databricks-provider/databricks-tool-calling';
 
 const PurePreviewMessage = ({
   chatId,
@@ -197,9 +198,8 @@ const PurePreviewMessage = ({
               }
             }
 
-            // Generic tool call support for OpenAI-style tools
-            if (part.type === 'tool-databricks-tool-call') {
-              part;
+            // Render Databricks tool calls and results
+            if (part.type === `tool-${DATABRICKS_TOOL_CALL_ID}`) {
               const { toolCallId, input, state, errorText, output } = part;
               const toolName =
                 'callProviderMetadata' in part
