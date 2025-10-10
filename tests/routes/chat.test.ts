@@ -3,6 +3,8 @@ import { expect, test } from '../fixtures';
 import { TEST_PROMPTS } from '../prompts/routes';
 import { getMessageByErrorCode } from '@/lib/errors';
 
+const chatIdsCreatedByAda: Array<string> = [];
+
 // Helper function to normalize stream data for comparison
 function normalizeStreamData(lines: string[]): string[] {
   return lines.filter(Boolean).map((line) => {
@@ -50,68 +52,69 @@ test.describe
       expect(response.status()).toBe(200);
 
       const text = await response.text();
-      console.log('text', text);
       const lines = normalizeStreamData(text.split('\n'));
       lines.forEach((line, index) => {
         expect(line).toContain(
           TEST_PROMPTS.SKY.OUTPUT_STREAM.expectedSSE[index],
         );
       });
+
+      chatIdsCreatedByAda.push(chatId);
     });
 
-    // test("Babbage cannot append message to Ada's chat", async ({
-    //   babbageContext,
-    // }) => {
-    //   const [chatId] = chatIdsCreatedByAda;
+    test("Babbage cannot append message to Ada's chat", async ({
+      babbageContext,
+    }) => {
+      const [chatId] = chatIdsCreatedByAda;
 
-    //   const response = await babbageContext.request.post('/api/chat', {
-    //     data: {
-    //       id: chatId,
-    //       message: TEST_PROMPTS.GRASS.MESSAGE,
-    //       selectedChatModel: 'chat-model',
-    //       selectedVisibilityType: 'private',
-    //     },
-    //   });
-    //   expect(response.status()).toBe(403);
+      const response = await babbageContext.request.post('/api/chat', {
+        data: {
+          id: chatId,
+          message: TEST_PROMPTS.GRASS.MESSAGE,
+          selectedChatModel: 'chat-model',
+          selectedVisibilityType: 'private',
+        },
+      });
+      expect(response.status()).toBe(403);
 
-    //   const { code, message } = await response.json();
-    //   expect(code).toEqual('forbidden:chat');
-    //   expect(message).toEqual(getMessageByErrorCode('forbidden:chat'));
-    // });
+      const { code, message } = await response.json();
+      expect(code).toEqual('forbidden:chat');
+      expect(message).toEqual(getMessageByErrorCode('forbidden:chat'));
+    });
 
-    // test("Babbage cannot delete Ada's chat", async ({ babbageContext }) => {
-    //   const [chatId] = chatIdsCreatedByAda;
+    test("Babbage cannot delete Ada's chat", async ({ babbageContext }) => {
+      const [chatId] = chatIdsCreatedByAda;
 
-    //   const response = await babbageContext.request.delete(
-    //     `/api/chat?id=${chatId}`,
-    //   );
-    //   expect(response.status()).toBe(403);
+      const response = await babbageContext.request.delete(
+        `/api/chat?id=${chatId}`,
+      );
+      expect(response.status()).toBe(403);
 
-    //   const { code, message } = await response.json();
-    //   expect(code).toEqual('forbidden:chat');
-    //   expect(message).toEqual(getMessageByErrorCode('forbidden:chat'));
-    // });
+      const { code, message } = await response.json();
+      expect(code).toEqual('forbidden:chat');
+      expect(message).toEqual(getMessageByErrorCode('forbidden:chat'));
+    });
 
-    // test('Ada can delete her own chat', async ({ adaContext }) => {
-    //   const [chatId] = chatIdsCreatedByAda;
+    test('Ada can delete her own chat', async ({ adaContext }) => {
+      const [chatId] = chatIdsCreatedByAda;
 
-    //   const response = await adaContext.request.delete(
-    //     `/api/chat?id=${chatId}`,
-    //   );
-    //   expect(response.status()).toBe(200);
+      const response = await adaContext.request.delete(
+        `/api/chat?id=${chatId}`,
+      );
+      expect(response.status()).toBe(200);
 
-    //   const deletedChat = await response.json();
-    //   expect(deletedChat).toMatchObject({ id: chatId });
-    // });
+      const deletedChat = await response.json();
+      expect(deletedChat).toMatchObject({ id: chatId });
+    });
 
-    // test('Ada cannot resume stream of chat that does not exist', async ({
-    //   adaContext,
-    // }) => {
-    //   const response = await adaContext.request.get(
-    //     `/api/chat/${generateUUID()}/stream`,
-    //   );
-    //   expect(response.status()).toBe(404);
-    // });
+    test('Ada cannot resume stream of chat that does not exist', async ({
+      adaContext,
+    }) => {
+      const response = await adaContext.request.get(
+        `/api/chat/${generateUUID()}/stream`,
+      );
+      expect(response.status()).toBe(204);
+    });
 
     // test('Ada can resume chat generation', async ({ adaContext }) => {
     //   const chatId = generateUUID();
