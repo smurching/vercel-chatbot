@@ -51,3 +51,10 @@ export const chatAgentResponseSchema = z.object({
   id: z.string(),
   messages: z.array(chatAgentMessageSchema),
 });
+
+export type ChatAgentChunk = z.infer<typeof chatAgentChunkSchema>;
+export type ChatAgentMessage = z.infer<typeof chatAgentMessageSchema>;
+export type ChatAgentResponse = z.infer<typeof chatAgentResponseSchema>;
+export type ChatAgentToolCall = z.infer<typeof chatAgentToolCallSchema>;
+export type ChatAgentToolMessage = z.infer<typeof chatAgentToolMessageSchema>;
+export type ChatAgentUserMessage = z.infer<typeof chatAgentUserMessageSchema>;

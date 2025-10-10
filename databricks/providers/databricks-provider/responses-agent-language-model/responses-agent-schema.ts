@@ -133,3 +133,20 @@ export const looseResponseAgentChunkSchema = z.union([
     .object({ type: z.string() })
     .loose(), // fallback for unknown chunks
 ]);
+
+export type ResponsesAgentChunk = z.infer<typeof responsesAgentChunkSchema>;
+export type ResponsesAgentMessage = z.infer<typeof responsesAgentMessageSchema>;
+export type ResponsesAgentFunctionCall = z.infer<
+  typeof responsesAgentFunctionCallSchema
+>;
+export type ResponsesAgentReasoning = z.infer<
+  typeof responsesAgentReasoningSchema
+>;
+export type ResponsesAgentFunctionCallOutput = z.infer<
+  typeof responsesAgentFunctionCallOutputSchema
+>;
+export type ResponsesAgentOutputItem = z.infer<typeof responsesAgentOutputItem>;
+export type ResponsesAgentResponse = z.infer<
+  typeof responsesAgentResponseSchema
+>;
+export type ResponsesAgentError = z.infer<typeof errorChunkSchema>;

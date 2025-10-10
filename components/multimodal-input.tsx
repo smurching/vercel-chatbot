@@ -409,6 +409,7 @@ function PureMultimodalInput({
             <StopButton stop={stop} setMessages={setMessages} />
           ) : (
             <PromptInputSubmit
+              data-testid="send-button"
               status={status}
               disabled={!input.trim() || uploadQueue.length > 0}
               className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
