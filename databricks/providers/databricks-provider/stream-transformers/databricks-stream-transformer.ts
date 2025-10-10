@@ -44,7 +44,6 @@ export const getDatabricksLanguageModelTransformStream = () => {
           const key = makeEndKey(getPartId(transformedChunk), endGroup);
           if (key) deltaEndByTypeAndId.add(key);
         }
-        console.log('[WRITE CHUNK]', transformedChunk);
         controller.enqueue(transformedChunk);
       });
 

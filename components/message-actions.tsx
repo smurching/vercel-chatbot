@@ -52,6 +52,7 @@ function PureMessageActions({
               tooltip="Edit"
               onClick={() => setMode('edit')}
               className="-left-10 absolute top-0 opacity-0 transition-opacity group-hover/message:opacity-100"
+              data-testid="message-edit-button"
             >
               <PencilEditIcon />
             </Action>

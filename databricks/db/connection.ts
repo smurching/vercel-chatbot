@@ -4,7 +4,6 @@
 import {
   getDatabricksToken,
   getAuthMethodDescription,
-  isAuthAvailable,
   getDatabaseUsername,
 } from '@/databricks/auth/databricks-auth';
 import {
