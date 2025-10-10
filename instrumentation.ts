@@ -27,6 +27,7 @@ export async function register() {
 
         // Print the regular MSW unhandled request warning otherwise.
         print.warning();
+        throw new Error('Unhandled external request in test environment');
       },
     });
   }

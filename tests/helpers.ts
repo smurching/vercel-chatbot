@@ -14,6 +14,7 @@ export type UserContext = {
   context: BrowserContext;
   page: Page;
   request: APIRequestContext;
+  name: string;
 };
 
 export async function createAuthenticatedContext({
@@ -36,6 +37,7 @@ export async function createAuthenticatedContext({
     context,
     page,
     request: context.request,
+    name,
   };
 }
 
