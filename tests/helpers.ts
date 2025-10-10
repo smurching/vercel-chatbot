@@ -46,6 +46,27 @@ export function generateRandomTestUser() {
   return { email, password };
 }
 
+export const createMockStreamResponse = (SSEs: string[]) => {
+  return new Response(stringsToStream(SSEs), {
+    headers: {
+      'Content-Type': 'text/event-stream',
+    },
+  });
+};
+
+export const stringsToStream = (SSEs: string[]) => {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    start(controller) {
+      for (const s of SSEs) {
+        controller.enqueue(encoder.encode(`${s}\n\n`));
+      }
+      controller.close();
+    },
+  });
+};
+
 /**
  * Create a single SSE line from a JSON-serializable payload.
  *

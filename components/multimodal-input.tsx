@@ -197,52 +197,6 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const myProvider = useMemo(() => {
-    if (isTestEnvironment) {
-      const {
-        artifactModel,
-        chatModel,
-        reasoningModel,
-        titleModel,
-      } = require('@/lib/ai/models.mock');
-      return customProvider({
-        languageModels: {
-          'chat-model': chatModel,
-          'chat-model-reasoning': reasoningModel,
-          'title-model': titleModel,
-          'artifact-model': artifactModel,
-        },
-      });
-    } else {
-      // Client-side dummy provider for when authentication is not available
-      const dummyProvider = createOpenAI({
-        baseURL: 'dummy-provider-frontend',
-        apiKey: 'dummy-key',
-      });
-
-      return customProvider({
-        languageModels: {
-          'chat-model': dummyProvider.chat('dummy-model'),
-          'chat-model-reasoning': dummyProvider.chat('dummy-model'),
-          'title-model': dummyProvider.chat('dummy-model'),
-          'artifact-model': dummyProvider.chat('dummy-model'),
-        },
-      });
-    }
-  }, []);
-
-  const modelResolver = useMemo(() => {
-    return myProvider.languageModel(selectedModelId);
-  }, [selectedModelId, myProvider]);
-
-  const contextMax = useMemo(() => {
-    // Resolve from selected model; stable across chunks.
-    // Fallback to selectedModelId if modelResolver.modelId is undefined (client-side dummy provider)
-    const modelId = modelResolver?.modelId || selectedModelId;
-    const cw = getContextWindow(modelId);
-    return cw.combinedMax ?? cw.inputMax ?? 0;
-  }, [modelResolver, selectedModelId]);
-
   const usedTokens = useMemo(() => {
     // Prefer explicit usage data part captured via onData
     if (!usage) return 0; // update only when final usage arrives
@@ -254,12 +208,11 @@ function PureMultimodalInput({
 
   const contextProps = useMemo(
     () => ({
-      maxTokens: contextMax,
+      maxTokens: -1,
       usedTokens,
       usage,
-      modelId: modelResolver.modelId,
     }),
-    [contextMax, usedTokens, usage, modelResolver],
+    [usedTokens, usage],
   );
 
   const handleFileChange = useCallback(
