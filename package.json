@@ -3,7 +3,9 @@
   "version": "3.1.0",
   "private": true,
   "scripts": {
+    "predev": "next telemetry disable",
     "dev": "NODE_OPTIONS='--inspect' next dev --turbo",
+    "prebuild": "next telemetry disable",
     "build": "tsx databricks/db/migrate && next build",
     "start": "next start",
     "lint": "biome lint --write --unsafe",
@@ -17,7 +19,8 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "pretest": "next telemetry disable",
+    "test": "export DATABRICKS_CLIENT_ID=mock-value && export DATABRICKS_CLIENT_SECRET=mock-value && export DATABRICKS_HOST=mock-value && export PLAYWRIGHT=True && playwright test"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.30",
@@ -82,6 +85,7 @@
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
     "http-proxy": "^1.18.1",
+    "msw": "^2.11.5",
     "postcss": "^8",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.19.1",

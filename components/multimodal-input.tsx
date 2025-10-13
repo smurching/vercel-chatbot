@@ -86,23 +86,24 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
 
+  const adjustHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '44px';
+    }
+  }, []);
+
   useEffect(() => {
     if (textareaRef.current) {
       adjustHeight();
     }
+    // adjustHeight is stable (useCallback with empty deps)
+  }, [adjustHeight]);
+
+  const resetHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '44px';
+    }
   }, []);
-
-  const adjustHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
-    }
-  };
-
-  const resetHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
-    }
-  };
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     'input',
@@ -117,9 +118,7 @@ function PureMultimodalInput({
       setInput(finalValue);
       adjustHeight();
     }
-    // Only run once after hydration
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [localStorageInput, setInput, adjustHeight]);
 
   useEffect(() => {
     setLocalStorageInput(input);
@@ -168,9 +167,10 @@ function PureMultimodalInput({
     setLocalStorageInput,
     width,
     chatId,
+    resetHeight,
   ]);
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -195,53 +195,7 @@ function PureMultimodalInput({
     } catch (error) {
       toast.error('Failed to upload file, please try again!');
     }
-  };
-
-  const myProvider = useMemo(() => {
-    if (isTestEnvironment) {
-      const {
-        artifactModel,
-        chatModel,
-        reasoningModel,
-        titleModel,
-      } = require('@/lib/ai/models.mock');
-      return customProvider({
-        languageModels: {
-          'chat-model': chatModel,
-          'chat-model-reasoning': reasoningModel,
-          'title-model': titleModel,
-          'artifact-model': artifactModel,
-        },
-      });
-    } else {
-      // Client-side dummy provider for when authentication is not available
-      const dummyProvider = createOpenAI({
-        baseURL: 'dummy-provider-frontend',
-        apiKey: 'dummy-key',
-      });
-
-      return customProvider({
-        languageModels: {
-          'chat-model': dummyProvider.chat('dummy-model'),
-          'chat-model-reasoning': dummyProvider.chat('dummy-model'),
-          'title-model': dummyProvider.chat('dummy-model'),
-          'artifact-model': dummyProvider.chat('dummy-model'),
-        },
-      });
-    }
   }, []);
-
-  const modelResolver = useMemo(() => {
-    return myProvider.languageModel(selectedModelId);
-  }, [selectedModelId, myProvider]);
-
-  const contextMax = useMemo(() => {
-    // Resolve from selected model; stable across chunks.
-    // Fallback to selectedModelId if modelResolver.modelId is undefined (client-side dummy provider)
-    const modelId = modelResolver?.modelId || selectedModelId;
-    const cw = getContextWindow(modelId);
-    return cw.combinedMax ?? cw.inputMax ?? 0;
-  }, [modelResolver, selectedModelId]);
 
   const usedTokens = useMemo(() => {
     // Prefer explicit usage data part captured via onData
@@ -254,12 +208,11 @@ function PureMultimodalInput({
 
   const contextProps = useMemo(
     () => ({
-      maxTokens: contextMax,
+      maxTokens: -1,
       usedTokens,
       usage,
-      modelId: modelResolver.modelId,
     }),
-    [contextMax, usedTokens, usage, modelResolver],
+    [usedTokens, usage],
   );
 
   const handleFileChange = useCallback(
@@ -285,7 +238,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments],
+    [setAttachments, uploadFile],
   );
 
   const { isAtBottom, scrollToBottom } = useScrollToBottom();
@@ -297,7 +250,7 @@ function PureMultimodalInput({
   }, [status, scrollToBottom]);
 
   return (
-    <div className="flex relative flex-col gap-4 w-full">
+    <div className="relative flex w-full flex-col gap-4">
       <AnimatePresence>
         {!isAtBottom && (
           <motion.div
@@ -305,7 +258,7 @@ function PureMultimodalInput({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="absolute -top-12 left-1/2 z-50 -translate-x-1/2"
+            className="-top-12 -translate-x-1/2 absolute left-1/2 z-50"
           >
             <Button
               data-testid="scroll-to-bottom-button"
@@ -343,7 +296,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="p-3 rounded-xl border transition-all duration-200 border-border bg-background shadow-xs focus-within:border-border hover:border-muted-foreground/50"
+        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
           if (status !== 'ready') {
@@ -356,7 +309,7 @@ function PureMultimodalInput({
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             data-testid="attachments-preview"
-            className="flex overflow-x-scroll flex-row gap-2 items-end"
+            className="flex flex-row items-end gap-2 overflow-x-scroll"
           >
             {attachments.map((attachment) => (
               <PreviewAttachment
@@ -386,7 +339,7 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        <div className="flex flex-row gap-1 items-start sm:gap-2">
+        <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             data-testid="multimodal-input"
             ref={textareaRef}
@@ -396,22 +349,23 @@ function PureMultimodalInput({
             minHeight={44}
             maxHeight={200}
             disableAutoResize={true}
-            className="grow resize-none border-0! p-2 border-none! bg-transparent text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             rows={1}
             autoFocus
           />{' '}
           <Context {...contextProps} />
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5"></PromptInputTools>
+          <PromptInputTools className="gap-0 sm:gap-0.5" />
 
           {status === 'submitted' ? (
             <StopButton stop={stop} setMessages={setMessages} />
           ) : (
             <PromptInputSubmit
+              data-testid="send-button"
               status={status}
               disabled={!input.trim() || uploadQueue.length > 0}
-              className="rounded-full transition-colors duration-200 size-8 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
             >
               <ArrowUpIcon size={14} />
             </PromptInputSubmit>
@@ -450,7 +404,7 @@ function PureAttachmentsButton({
   return (
     <Button
       data-testid="attachments-button"
-      className="p-1 h-8 rounded-lg transition-colors aspect-square hover:bg-accent"
+      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
@@ -491,10 +445,10 @@ function PureModelSelectorCompact({
     >
       <SelectPrimitive.Trigger
         type="button"
-        className="flex gap-2 items-center px-2 h-8 rounded-lg border-0 shadow-none transition-colors bg-background text-foreground hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
       >
         <CpuIcon size={16} />
-        <span className="hidden text-xs font-medium sm:block">
+        <span className="hidden font-medium text-xs sm:block">
           {selectedModel?.name}
         </span>
         <ChevronDownIcon size={16} />
@@ -507,9 +461,9 @@ function PureModelSelectorCompact({
               value={model.name}
               className="px-3 py-2 text-xs"
             >
-              <div className="flex flex-col flex-1 gap-1 min-w-0">
-                <div className="text-xs font-medium truncate">{model.name}</div>
-                <div className="text-[10px] text-muted-foreground truncate leading-tight">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="truncate font-medium text-xs">{model.name}</div>
+                <div className="truncate text-[10px] text-muted-foreground leading-tight">
                   {model.description}
                 </div>
               </div>
@@ -533,7 +487,7 @@ function PureStopButton({
   return (
     <Button
       data-testid="stop-button"
-      className="p-1 rounded-full transition-colors duration-200 size-7 bg-foreground text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
       onClick={(event) => {
         event.preventDefault();
         stop();
