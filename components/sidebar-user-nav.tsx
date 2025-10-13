@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronUp } from 'lucide-react';
+import { ChevronUp, UserIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 
@@ -19,10 +19,11 @@ import {
 import { useRouter } from 'next/navigation';
 import { LoaderIcon } from './icons';
 import { useDatabricksSession } from '@/lib/hooks/use-databricks-session';
+import { getAiGradientStyle } from './animation-assistant-icon';
 
 export function SidebarUserNav({
   user,
-  preferredUsername
+  preferredUsername,
 }: {
   user: any;
   preferredUsername: string | null;
@@ -56,13 +57,12 @@ export function SidebarUserNav({
                 data-testid="user-nav-button"
                 className="h-10 bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <Image
-                  src={`https://avatar.vercel.sh/${user.email}`}
-                  alt={user.email ?? 'User Avatar'}
-                  width={24}
-                  height={24}
-                  className="rounded-full"
-                />
+                <div
+                  style={{ ...getAiGradientStyle().styling }}
+                  className="flex size-6 items-center justify-center rounded-full"
+                >
+                  {displayName.charAt(0)}
+                </div>
                 <span data-testid="user-email" className="truncate">
                   {displayName}
                 </span>

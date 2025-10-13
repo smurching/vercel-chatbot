@@ -140,7 +140,7 @@ export const AnimatedAssistantIcon = ({
  * We also make use of padding-box to create an "inset" effect controlled by the border-width.
  * This is what creates the illusion of a gradient border.
  */
-const getAiGradientStyle = () => {
+export const getAiGradientStyle = () => {
   // Currently these are the same for both light and dark mode, but we may want to change this in the future.
   const branded = {
     ai: {
