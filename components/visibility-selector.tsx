@@ -10,11 +10,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
-  CheckCircleFillIcon,
+  CircleCheck,
   ChevronDownIcon,
   GlobeIcon,
   LockIcon,
-} from './icons';
+} from 'lucide-react';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 
 export type VisibilityType = 'private' | 'public';
@@ -100,7 +100,7 @@ function VisibilitySelector({
               )}
             </div>
             <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100 dark:text-foreground">
-              <CheckCircleFillIcon />
+              <CircleCheck />
             </div>
           </DropdownMenuItem>
         ))}

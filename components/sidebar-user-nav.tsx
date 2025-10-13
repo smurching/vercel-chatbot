@@ -1,7 +1,6 @@
 'use client';
 
-import { ChevronUp, UserIcon } from 'lucide-react';
-import Image from 'next/image';
+import { ChevronUp, LoaderIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 import {
@@ -17,7 +16,6 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useRouter } from 'next/navigation';
-import { LoaderIcon } from './icons';
 import { useDatabricksSession } from '@/lib/hooks/use-databricks-session';
 import { getAiGradientStyle } from './animation-assistant-icon';
 

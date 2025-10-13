@@ -1,5 +1,5 @@
 import { motion, useAnimation } from 'framer-motion';
-import { SparklesIcon } from './icons'; // ← keep your own import
+import { SparklesIcon } from 'lucide-react';
 import { useEffect } from 'react';
 
 type AnimatedAssistantIconProps = {
