@@ -9,10 +9,28 @@ jobs:
   test:
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chatbot
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
-      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-      POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/chatbot?sslmode=disable
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: chatbot
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGSSLMODE: disable
 
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +62,9 @@ jobs:
       - name: Install Playwright Browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Run database migrations
+        run: npm run db:migrate
 
       - name: Run Playwright tests
         env:
