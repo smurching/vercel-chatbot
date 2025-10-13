@@ -59,8 +59,8 @@ test.describe('Chat activity', () => {
     const userMessage = await chatPage.getRecentUserMessage();
 
     await Promise.all([
-      userMessage.edit('Hello again'),
       chatPage.isGenerationComplete(),
+      userMessage.edit('Hello again'),
     ]);
 
     const updatedAssistantMessage = await chatPage.getRecentAssistantMessage();
