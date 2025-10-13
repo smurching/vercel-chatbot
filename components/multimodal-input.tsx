@@ -38,6 +38,7 @@ import {
   ChevronDownIcon,
   CpuIcon,
   PaperclipIcon,
+  StopCircleIcon,
 } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
@@ -493,7 +494,7 @@ function PureStopButton({
         setMessages((messages) => messages);
       }}
     >
-      <StopIcon size={14} />
+      <StopCircleIcon size={14} />
     </Button>
   );
 }
