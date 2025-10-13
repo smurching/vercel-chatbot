@@ -26,7 +26,7 @@ resources:
 
   apps:
     databricks_chatbot:
-      name: db-chatbot-${var.resource_name_suffix}
+      name: ${var.resource_name_suffix}
       description: "Chatbot UI for Agent Bricks and custom code agents"
       source_code_path: .
       resources:
@@ -49,6 +49,11 @@ targets:
     default: true
     variables:
       resource_name_suffix: dev-${workspace.current_user.domain_friendly_name}
+
+  obo:
+    mode: development
+    variables:
+      resource_name_suffix: dev-${workspace.current_user.domain_friendly_name}-obo
 
   staging:
     mode: production
