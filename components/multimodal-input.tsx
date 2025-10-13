@@ -1,6 +1,6 @@
 'use client';
 
-import type { LanguageModelUsage, UIMessage } from 'ai';
+import type { UIMessage } from 'ai';
 import {
   useRef,
   useEffect,
@@ -10,7 +10,6 @@ import {
   type SetStateAction,
   type ChangeEvent,
   memo,
-  useMemo,
 } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
@@ -32,7 +31,6 @@ import { ArrowDown, ArrowUpIcon, StopCircleIcon } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
 import type { Attachment, ChatMessage } from '@/lib/types';
-import { normalizeUsage } from 'tokenlens';
 
 function PureMultimodalInput({
   chatId,
@@ -45,10 +43,7 @@ function PureMultimodalInput({
   messages,
   setMessages,
   sendMessage,
-  className,
   selectedVisibilityType,
-  selectedModelId,
-  usage,
 }: {
   chatId: string;
   input: string;
@@ -60,10 +55,7 @@ function PureMultimodalInput({
   messages: Array<UIMessage>;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
-  className?: string;
   selectedVisibilityType: VisibilityType;
-  selectedModelId: string;
-  usage?: LanguageModelUsage;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -178,24 +170,6 @@ function PureMultimodalInput({
       toast.error('Failed to upload file, please try again!');
     }
   }, []);
-
-  const usedTokens = useMemo(() => {
-    // Prefer explicit usage data part captured via onData
-    if (!usage) return 0; // update only when final usage arrives
-    const n = normalizeUsage(usage);
-    return typeof n.total === 'number'
-      ? n.total
-      : (n.input ?? 0) + (n.output ?? 0);
-  }, [usage]);
-
-  const contextProps = useMemo(
-    () => ({
-      maxTokens: -1,
-      usedTokens,
-      usage,
-    }),
-    [usedTokens, usage],
-  );
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
