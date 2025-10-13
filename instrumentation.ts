@@ -11,8 +11,6 @@ export async function register() {
   // The only host we don't want to mock is the local host
   const unmocked = ['localhost:3000'];
 
-  console.log('NEXT_RUNTIME', process.env.NEXT_RUNTIME);
-
   // Only register the mock server in test environment
   // and only if the NEXT_RUNTIME is nodejs (meaning server side)
   if (process.env.NEXT_RUNTIME === 'nodejs' && isTestEnvironment) {

@@ -20,7 +20,7 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "pretest": "next telemetry disable",
-    "test": "export PLAYWRIGHT=True && playwright test"
+    "test": "export DATABRICKS_CLIENT_ID=mock-value && export DATABRICKS_CLIENT_SECRET=mock-value && export DATABRICKS_HOST=mock-value && export PLAYWRIGHT=True && playwright test"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.30",
