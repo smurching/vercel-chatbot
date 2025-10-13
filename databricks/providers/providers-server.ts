@@ -80,7 +80,7 @@ export const databricksFetch: typeof fetch = async (input, init) => {
           body: requestBody,
         }),
       );
-    } catch (e) {
+    } catch (_e) {
       console.log('Databricks request (raw):', {
         url,
         method: init.method || 'POST',
@@ -165,7 +165,7 @@ async function getOrCreateDatabricksProvider(): Promise<CachedProvider> {
   }
 
   console.log('Creating new OAuth provider');
-  const token = await getProviderToken();
+  const _token = await getProviderToken();
   const hostname = await getWorkspaceHostname();
 
   // Create provider with fetch that always uses fresh token

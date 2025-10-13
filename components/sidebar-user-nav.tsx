@@ -15,7 +15,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { useRouter } from 'next/navigation';
 import { useDatabricksSession } from '@/lib/hooks/use-databricks-session';
 import { getAiGradientStyle } from './animation-assistant-icon';
 
@@ -26,7 +25,6 @@ export function SidebarUserNav({
   user: any;
   preferredUsername: string | null;
 }) {
-  const router = useRouter();
   const { data, status } = useDatabricksSession();
   const { setTheme, resolvedTheme } = useTheme();
 

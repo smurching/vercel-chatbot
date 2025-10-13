@@ -24,33 +24,15 @@ import {
   PromptInputToolbar,
   PromptInputTools,
   PromptInputSubmit,
-  PromptInputModelSelect,
-  PromptInputModelSelectContent,
 } from './elements/prompt-input';
-import { SelectItem } from '@/components/ui/select';
-import * as SelectPrimitive from '@radix-ui/react-select';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ArrowDown,
-  ArrowUpIcon,
-  ChevronDownIcon,
-  CpuIcon,
-  PaperclipIcon,
-  StopCircleIcon,
-} from 'lucide-react';
+import { ArrowDown, ArrowUpIcon, StopCircleIcon } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
 import type { Attachment, ChatMessage } from '@/lib/types';
-import { chatModels } from '@/lib/ai/models';
-import { saveChatModelAsCookie } from '@/app/(chat)/actions';
-import { startTransition } from 'react';
-import { getContextWindow, normalizeUsage } from 'tokenlens';
-import { Context } from './elements/context';
-import { customProvider } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { isTestEnvironment } from '@/lib/constants';
+import { normalizeUsage } from 'tokenlens';
 
 function PureMultimodalInput({
   chatId,
@@ -192,7 +174,7 @@ function PureMultimodalInput({
       }
       const { error } = await response.json();
       toast.error(error);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to upload file, please try again!');
     }
   }, []);
@@ -353,7 +335,6 @@ function PureMultimodalInput({
             rows={1}
             autoFocus
           />{' '}
-          <Context {...contextProps} />
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5" />
@@ -389,93 +370,6 @@ export const MultimodalInput = memo(
     return true;
   },
 );
-
-function PureAttachmentsButton({
-  fileInputRef,
-  status,
-  selectedModelId,
-}: {
-  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers<ChatMessage>['status'];
-  selectedModelId: string;
-}) {
-  const isReasoningModel = selectedModelId === 'chat-model-reasoning';
-
-  return (
-    <Button
-      data-testid="attachments-button"
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
-      onClick={(event) => {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }}
-      disabled={status !== 'ready' || isReasoningModel}
-      variant="ghost"
-    >
-      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
-    </Button>
-  );
-}
-
-const AttachmentsButton = memo(PureAttachmentsButton);
-
-function PureModelSelectorCompact({
-  selectedModelId,
-}: {
-  selectedModelId: string;
-}) {
-  const [optimisticModelId, setOptimisticModelId] = useState(selectedModelId);
-
-  const selectedModel = chatModels.find(
-    (model) => model.id === optimisticModelId,
-  );
-
-  return (
-    <PromptInputModelSelect
-      value={selectedModel?.name}
-      onValueChange={(modelName) => {
-        const model = chatModels.find((m) => m.name === modelName);
-        if (model) {
-          setOptimisticModelId(model.id);
-          startTransition(() => {
-            saveChatModelAsCookie(model.id);
-          });
-        }
-      }}
-    >
-      <SelectPrimitive.Trigger
-        type="button"
-        className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-      >
-        <CpuIcon size={16} />
-        <span className="hidden font-medium text-xs sm:block">
-          {selectedModel?.name}
-        </span>
-        <ChevronDownIcon size={16} />
-      </SelectPrimitive.Trigger>
-      <PromptInputModelSelectContent className="min-w-[260px] p-0">
-        <div className="flex flex-col gap-px">
-          {chatModels.map((model) => (
-            <SelectItem
-              key={model.id}
-              value={model.name}
-              className="px-3 py-2 text-xs"
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="truncate font-medium text-xs">{model.name}</div>
-                <div className="truncate text-[10px] text-muted-foreground leading-tight">
-                  {model.description}
-                </div>
-              </div>
-            </SelectItem>
-          ))}
-        </div>
-      </PromptInputModelSelectContent>
-    </PromptInputModelSelect>
-  );
-}
-
-const ModelSelectorCompact = memo(PureModelSelectorCompact);
 
 function PureStopButton({
   stop,

@@ -106,7 +106,7 @@ export const convertResponsesAgentChunkToMessagePart = (
           },
         );
       } else {
-        const exhaustiveCheck: never = chunk.item;
+        const _exhaustiveCheck: never = chunk.item;
       }
       break;
 
@@ -128,7 +128,7 @@ export const convertResponsesAgentChunkToMessagePart = (
       break;
 
     default: {
-      const exhaustiveCheck: never = chunk;
+      const _exhaustiveCheck: never = chunk;
       break;
     }
   }
@@ -200,7 +200,7 @@ export const convertResponsesAgentResponseToMessagePart = (
         break;
 
       default: {
-        const exhaustiveCheck: never = output;
+        const _exhaustiveCheck: never = output;
         break;
       }
     }
