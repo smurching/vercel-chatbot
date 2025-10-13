@@ -30,4 +30,10 @@ export const handlers = [
       task: 'llm/v1/chat', // mock fmapi for now
     });
   }),
+  // Mock fetching oidc token
+  http.post('*/oidc/v1/token', () => {
+    return HttpResponse.json({
+      access_token: 'test-token',
+    });
+  }),
 ];

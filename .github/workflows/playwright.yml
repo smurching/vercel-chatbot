@@ -31,7 +31,10 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       PGSSLMODE: disable
-      DATABRICKS_SERVING_ENDPOINT: "not-used-for-testing"
+      DATABRICKS_SERVING_ENDPOINT: "mock-value"
+      DATABRICKS_CLIENT_ID: "mock-value"
+      DATABRICKS_CLIENT_SECRET: "mock-value"
+      DATABRICKS_HOST: "mock-value"
 
     steps:
       - uses: actions/checkout@v4
