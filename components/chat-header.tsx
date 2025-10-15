@@ -5,22 +5,9 @@ import { useWindowSize } from 'usehooks-ts';
 import { SidebarToggle } from '@/components/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from './ui/sidebar';
-import { memo } from 'react';
-import type { VisibilityType } from './visibility-selector';
-import type { AuthSession } from '@/databricks/auth/databricks-auth';
 import { PlusIcon } from 'lucide-react';
 
-function PureChatHeader({
-  chatId,
-  selectedVisibilityType,
-  isReadonly,
-  session,
-}: {
-  chatId: string;
-  selectedVisibilityType: VisibilityType;
-  isReadonly: boolean;
-  session: AuthSession;
-}) {
+export function ChatHeader() {
   const router = useRouter();
   const { open } = useSidebar();
 
@@ -46,11 +33,3 @@ function PureChatHeader({
     </header>
   );
 }
-
-export const ChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
-  return (
-    prevProps.chatId === nextProps.chatId &&
-    prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
-    prevProps.isReadonly === nextProps.isReadonly
-  );
-});

@@ -31,7 +31,7 @@ import { MessageError } from './message-error';
 import { DATABRICKS_TOOL_CALL_ID } from '@/databricks/providers/databricks-provider/databricks-tool-calling';
 
 const PurePreviewMessage = ({
-  chatId,
+  chatId: _chatId,
   message,
   isLoading,
   setMessages,

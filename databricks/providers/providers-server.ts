@@ -91,61 +91,7 @@ export const databricksFetch: typeof fetch = async (input, init) => {
 
   const response = await fetch(url, init);
 
-  if (!response.ok) {
-    return response;
-  }
-
-  const contentType = response.headers.get('content-type');
-
-  // Handle streaming responses (text/event-stream) - add raw logging
-  if (contentType?.includes('text/event-stream')) {
-    return response;
-  }
-
-  // Handle non-streaming JSON responses
-  if (!contentType?.includes('application/json')) {
-    return response;
-  }
-
-  const data = await response.json();
-
-  // Add fields that are missing from Databricks' ResponsesAgent output chunks
-  if (data.object === 'response' && data.output && Array.isArray(data.output)) {
-    const transformedData = {
-      ...data,
-      created_at: Math.floor(Date.now() / 1000),
-      output: data.output.map((msg: any) => ({
-        ...msg,
-        content: msg.content.map((content: any) => ({
-          ...content,
-          annotations: [],
-        })),
-      })),
-      incomplete_details: null,
-      usage: {
-        input_tokens: 0,
-        output_tokens: data.output[0]?.content?.[0]?.text?.length
-          ? Math.ceil(data.output[0].content[0].text.length / 4)
-          : 0,
-        total_tokens: data.output[0]?.content?.[0]?.text?.length
-          ? Math.ceil(data.output[0].content[0].text.length / 4)
-          : 0,
-      },
-      model: 'TODO: unknown',
-    };
-
-    return new Response(JSON.stringify(transformedData), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-  }
-
-  return new Response(JSON.stringify(data), {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
+  return response;
 };
 
 type CachedProvider = ReturnType<typeof createDatabricksProvider>;
