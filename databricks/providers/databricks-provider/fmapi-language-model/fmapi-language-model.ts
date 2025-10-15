@@ -50,7 +50,7 @@ export class DatabricksFmapiLanguageModel implements LanguageModelV2 {
       modelId: this.modelId,
     });
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       ...networkArgs,
       successfulResponseHandler: createJsonResponseHandler(fmapiResponseSchema),
       failedResponseHandler: createJsonErrorResponseHandler({
